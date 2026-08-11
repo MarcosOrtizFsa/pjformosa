@@ -41,11 +41,16 @@ function respuesta_down_multiple_archivos(exito,msghtml,url_exito,id_exito,vars_
 	alert('Error: '+msghtml);
 	}
 	else
+	if  (exito=='Exito:')
+	{
+	alert('Importación completada. '+msghtml);
+	cargar_post(''+url_exito+'',''+id_exito+'',''+vars_dow+'');
+	}
+	else
 	{
 		cargar_post(''+url_exito+'',''+id_exito+'',''+vars_dow+'');	
 	}
 
 	
 }
-
 

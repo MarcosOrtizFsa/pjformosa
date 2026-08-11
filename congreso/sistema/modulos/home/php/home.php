@@ -10,126 +10,104 @@ $mysqli = new _Abm($base);
 
 $t = new _template('../templates');
 $t->set_file(array(
-	'ver'	=> "home.html"
-	));
-	
-	
+	'ver' => "home.html"
+));
 
-function traer_datos_estadisticos($tema,$vars,$mysqli)
+const ANO_ESTADISTICAS = 2026;
+
+function tarjeta_estadistica($titulo, $presentes, $total, $destacada = false)
 {
-	$porciento="100";
-	$total="0";
-	$presentes="0";
-	
-	if ($vars !='' )
-	{
-	$and =" and system_100_departamento = '$vars' ";
-	}
-	else
-	{
-	$and ="";
-	}
-	
-	// total
-	$row = $mysqli -> consulta_SQL("Select COUNT(*) total_filas from system_100_congresistas  where system_100_estado IN ('0','1') $and ");
-	if ($row == TRUE)
-	{
-		$total = $row[0]['total_filas'];
-	}	
-	
-	// presentes
-	$row2 = $mysqli -> consulta_SQL("Select COUNT(*) total_presentes from system_100_congresistas  where system_100_estado = '1' $and ");
-	if ($row2 == TRUE)
-	{
-		$presentes = $row2[0]['total_presentes'];
-	}	
-	
-	
-	$barratotal = round(($presentes * $porciento) / $total, 0); 
-	$cadena="";
-	$cadena.='<div style=" background:#cccccc; width:100%; height: 40px;">';
-	$cadena.='<div style="width:'.$barratotal.'%; background: #0099CC;  height: 40px; margin:0px; text-align:right; color:#000; font-size:16px; padding-top:10px;">'.$barratotal.'%&nbsp;</div>';
-	$cadena.='</div>';
-	$cadena.=$tema.' '.$presentes.' de '.$total;			
-				
+	$presentes = (int) $presentes;
+	$total = (int) $total;
+	$porcentaje = $total > 0 ? (int) round(($presentes * 100) / $total) : 0;
+	$porcentaje = max(0, min(100, $porcentaje));
+	$titulo_seguro = htmlspecialchars((string) $titulo, ENT_QUOTES, 'UTF-8');
+	$clase = $destacada ? ' stats-card--featured' : '';
+
+	$cadena = '<article class="stats-card'.$clase.'">';
+	$cadena .= '<div class="stats-card__header">';
+	$cadena .= '<div><span class="stats-card__eyebrow">'.($destacada ? 'Resumen general' : 'Departamento').'</span>';
+	$cadena .= '<h3>'.$titulo_seguro.'</h3></div>';
+	$cadena .= '<strong class="stats-card__percent">'.$porcentaje.'%</strong>';
+	$cadena .= '</div>';
+	$cadena .= '<div class="progress stats-progress" role="progressbar" aria-label="Asistencia en '.$titulo_seguro.'" aria-valuenow="'.$porcentaje.'" aria-valuemin="0" aria-valuemax="100">';
+	$cadena .= '<div class="progress-bar" style="width: '.$porcentaje.'%"></div>';
+	$cadena .= '</div>';
+	$cadena .= '<div class="stats-card__footer">';
+	$cadena .= '<span><strong>'.$presentes.'</strong> presentes</span>';
+	$cadena .= '<span>'.$total.' congresistas</span>';
+	$cadena .= '</div>';
+	$cadena .= '</article>';
+
 	return $cadena;
 }
 
+$contenido_estadisticas = '';
+$cantidad_departamentos = 0;
 
-if ( optener_permisos('V',$id_system_01,$sesion_system_03,$mysqli) == '1' )
-{	
-	
-	$vars="";
-	$tema="Totales: ";
-	$t->set_var("barra_general",traer_datos_estadisticos($tema,$vars,$mysqli));
-	$vars="Formosa";
-	$tema="Formosa: ";
-	
-	$t->set_var("barra_formosa",traer_datos_estadisticos($tema,$vars,$mysqli));
-	$vars="BERMEJO";
-	$tema="Bermejo: ";
-	$t->set_var("barra_bermejo",traer_datos_estadisticos($tema,$vars,$mysqli));
+if (optener_permisos('V', $id_system_01, $sesion_system_03, $mysqli) == '1')
+{
+	$consulta = "SELECT
+					system_100_departamento AS departamento,
+					COUNT(*) AS total,
+					SUM(CASE WHEN system_100_estado = 1 THEN 1 ELSE 0 END) AS presentes
+				FROM system_100_congresistas
+				WHERE system_100_ano = '".ANO_ESTADISTICAS."'
+				AND system_100_estado IN (0, 1)
+				GROUP BY system_100_departamento
+				ORDER BY system_100_departamento ASC";
 
-	$vars="LAISHI";
-	$tema="Laishi: ";
-	$t->set_var("barra_LAISHI",traer_datos_estadisticos($tema,$vars,$mysqli));
-	
-	$vars="MATACOS";
-	$tema="Matacos: ";
-	$t->set_var("barra_MATACOS",traer_datos_estadisticos($tema,$vars,$mysqli));
+	$resultados = $mysqli->consulta_SQL($consulta);
+	$total_general = 0;
+	$presentes_general = 0;
+	$tarjetas_departamentos = '';
 
-	$vars="PATINO";
-	$tema="Pati&ntilde;o: ";
-	$t->set_var("barra_PATINO",traer_datos_estadisticos($tema,$vars,$mysqli));
+	if (is_array($resultados))
+	{
+		foreach ($resultados as $resultado)
+		{
+			$total = (int) $resultado['total'];
+			$presentes = (int) $resultado['presentes'];
+			$departamento = trim((string) $resultado['departamento']);
+			if ($departamento === '')
+			{
+				$departamento = 'Sin departamento';
+			}
 
-	$vars="PILAGAS";
-	$tema="Pilagas: ";
-	$t->set_var("barra_PILAGAS",traer_datos_estadisticos($tema,$vars,$mysqli));
-	
-	$vars="PILCOMAYO";
-	$tema="Pilcomayo: ";
-	$t->set_var("barra_PILCOMAYO",traer_datos_estadisticos($tema,$vars,$mysqli));
-	
-	
-	$vars="PIRANE";
-	$tema="Pirane: ";
-	$t->set_var("barra_PIRANE",traer_datos_estadisticos($tema,$vars,$mysqli));
-	
-	
-	$vars="RAMON LISTA";
-	$tema="Ramon Lista: ";
-	$t->set_var("barra_RAMONLISTA",traer_datos_estadisticos($tema,$vars,$mysqli));
-	
-					
-/*	LAISHI
-	MATACOS
-	PATI�O
-	PILAGAS
-	PILCOMAYO
-	PIRANE
-	RAMON LISTA*/
-	
-														
+			$total_general += $total;
+			$presentes_general += $presentes;
+			$cantidad_departamentos++;
+			$tarjetas_departamentos .= tarjeta_estadistica($departamento, $presentes, $total);
+		}
+	}
+
+	$contenido_estadisticas .= '<section class="stats-overview">';
+	$contenido_estadisticas .= tarjeta_estadistica('Todos los departamentos', $presentes_general, $total_general, true);
+	$contenido_estadisticas .= '</section>';
+
+	if ($cantidad_departamentos > 0)
+	{
+		$contenido_estadisticas .= '<div class="stats-section-title"><div><span>Detalle territorial</span><h2>Asistencia por departamento</h2></div><small>'.$cantidad_departamentos.' departamentos</small></div>';
+		$contenido_estadisticas .= '<section class="stats-grid">'.$tarjetas_departamentos.'</section>';
+	}
+	else
+	{
+		$contenido_estadisticas .= '<div class="stats-empty"><i class="bi bi-bar-chart" aria-hidden="true"></i><p>Todavía no hay congresistas cargados para '.ANO_ESTADISTICAS.'.</p></div>';
+	}
 }
 else
 {
-
-	$t->set_var("barra_general",'');
+	$contenido_estadisticas = '<div class="alert alert-warning my-4" role="alert">No tenés permisos para consultar las estadísticas de asistencia.</div>';
 }
-				
 
+$t->set_var("contenido_estadisticas", $contenido_estadisticas);
+$t->set_var("ano_estadisticas", (string) ANO_ESTADISTICAS);
+$t->set_var("hora_actualizacion", date('H:i'));
 
-
-
-
-
-
-$url="'modulos/home/php/home.php'";
-$id="'content_seccion'";
-$vars="'id_system_01=$id_system_01'";
-$t->set_var("funcion_actualiar","cargar_post($url,$id,$vars); ");
-
-
+$url = "'modulos/home/php/home.php'";
+$id = "'content_seccion'";
+$vars = "'id_system_01=$id_system_01'";
+$t->set_var("funcion_actualiar", "cargar_post($url,$id,$vars);");
 
 $t->pparse("OUT", "ver");
 ?>

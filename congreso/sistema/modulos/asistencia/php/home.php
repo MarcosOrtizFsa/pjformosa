@@ -13,11 +13,11 @@ $t->set_file(array(
 	));
 
 $t->set_var("titulo_modulo","Asistencia");
-
+$system_100_ano="2026";
 
 $variable_buscar= isset($_POST['variable_buscar']) ? $_POST['variable_buscar'] : NULL;
 
-$where=" WHERE system_100_estado IN ('0','1') ";			
+$where=" WHERE system_100_estado IN ('0','1') and system_100_ano = '$system_100_ano' ";
 if ( $variable_buscar != "" )
 {
 	$variable_buscar=formatear_cuit($variable_buscar);
@@ -49,8 +49,8 @@ else
 $where_control=$_SESSION['where_control'];
 
 	//echo $where_control;
-	$tSQL = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_100_congresistas
-									");
+	$tSQL = $mysqli -> consulta_SQL("SELECT COUNT(*) as total_filas from system_100_congresistas
+									WHERE system_100_estado IN ('0','1') and system_100_ano = '$system_100_ano' ");
 	if ($tSQL == TRUE)
 	{		
 		$total_filas = $tSQL[0]['total_filas'];
@@ -61,7 +61,7 @@ $where_control=$_SESSION['where_control'];
 	}
 
 
-	$row = $mysqli -> consulta_SQL("Select * from system_100_congresistas 
+	$row = $mysqli -> consulta_SQL("SELECT * from system_100_congresistas
 						$where_control
 						
 						

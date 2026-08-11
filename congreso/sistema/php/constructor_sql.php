@@ -105,5 +105,10 @@ class Constructor_SQL{
 		}
 
 	}
+
+	public function escapar($valor)
+	{
+		return $this->conexion->real_escape_string((string) $valor);
+	}
 }
 ?>

@@ -213,26 +213,50 @@ class Abm
 		$system_hora = date('H:i:s');
 	
 		$respuesta = $this -> bd -> EnviarQuery("INSERT INTO system_09_archivero 
-		VALUES 
+		(
+			id_system_09,
+			rela_system_06,
+			rela_system_03,
+			rela_system_04,
+			rela_system_10,
+			rela_system_11,
+			rela_system_15,
+			rela_system_100,
+			system_09_tipo,
+			system_09_album,
+			system_09_epigrafe,
+			system_09_path,
+			system_09_archivo,
+			system_09_type,
+			system_09_size,
+			system_09_destacado,
+			system_09_descargado,
+			system_09_html,
+			system_09_estado,
+			system_09_checked
+		)
+		VALUES
 		(
 			DEFAULT,	
-			'$rela_system_06', 	
-			'$rela_system_04',	
-			'$rela_system_10', 
-			'$rela_system_11', 
-			'$rela_system_15', 	
-			'$system_09_tipo',	
-			'$system_09_album',	
-			'$system_09_epigrafe', 	
-			'$system_09_path', 	
-			'$system_09_archivo', 	
-			'$system_09_type', 	
-			'$system_09_size', 	
+			'".$this->bd->escapar($rela_system_06)."',
+			'".$this->bd->escapar($rela_system_03)."',
+			'0',
+			'".$this->bd->escapar($rela_system_10)."',
+			'".$this->bd->escapar($rela_system_11)."',
+			'".$this->bd->escapar($rela_system_15)."',
+			'0',
+			'".$this->bd->escapar($system_09_tipo)."',
+			'".$this->bd->escapar($system_09_album)."',
+			'".$this->bd->escapar($system_09_epigrafe)."',
+			'".$this->bd->escapar($system_09_path)."',
+			'".$this->bd->escapar($system_09_archivo)."',
+			'".$this->bd->escapar($system_09_type)."',
+			'".$this->bd->escapar($system_09_size)."',
 			'0',
 			'0', 
 			'',	
 			'1', 	
-			'$system_checked' 
+			'".$this->bd->escapar($system_checked)."'
 		)");
 		return $respuesta;		
 		
@@ -259,11 +283,17 @@ public function guardar_dato_extraido(
 									$system_100_orden_seccion,
 									$system_100_congresista,
 									$system_100_dni,
-									$system_100_departamento
+									$system_100_departamento,
+									$system_100_ano
 									)
 	{
-		$system_fecha = date('Y-m-d');
-		$system_hora = date('H:i:s');		
+		$sesion_system_03 = $this->bd->escapar($sesion_system_03);
+		$system_100_orden = $this->bd->escapar($system_100_orden);
+		$system_100_orden_seccion = $this->bd->escapar($system_100_orden_seccion);
+		$system_100_congresista = $this->bd->escapar($system_100_congresista);
+		$system_100_dni = $this->bd->escapar($system_100_dni);
+		$system_100_departamento = $this->bd->escapar($system_100_departamento);
+		$system_100_ano = $this->bd->escapar($system_100_ano);
 				
 		$respuesta = $this -> bd -> EnviarQuery("INSERT INTO system_100_congresistas 
 		( 
@@ -274,7 +304,8 @@ public function guardar_dato_extraido(
 		system_100_congresista,
 		system_100_dni,
 		system_100_departamento,
-		system_100_estado														
+		system_100_estado,
+		system_100_ano
 		) 
 		VALUES 
 		(
@@ -285,13 +316,10 @@ public function guardar_dato_extraido(
 		'$system_100_congresista',
 		'$system_100_dni',
 		'$system_100_departamento',
-		'0'
+		'0',
+		'$system_100_ano'
 		)");
-		if(!$respuesta != 'Fatal')
-		{
-			return 'Fatal! Hay un error en el query [1]';
-		}
-
+		return $respuesta;
 	}
 	
 	
@@ -327,6 +355,7 @@ function guardar_logistica($rela_system_03,$rela_system_07,$rela_system_06,$rela
 
 function optener_permisos($acceso,$rela_system_01,$sesion_system_03,$mysqli)
 {
+	$retorno = '0';
 	$dat = $mysqli -> consulta_SQL("Select * from system_03_usuarios where id_system_03='$sesion_system_03' ");
 	if ($dat == true)
 	{

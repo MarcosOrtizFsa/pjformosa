@@ -1,102 +1,78 @@
-<nav class="navbar navbar-light bg-light">
+<style>
+.stats-page {
+  --stats-blue: #0867b2;
+  --stats-blue-dark: #064a82;
+  --stats-sky: #35b7e9;
+  --stats-ink: #17324a;
+  --stats-muted: #6c8193;
+  --stats-line: #dce8f0;
+  min-height: calc(100vh - 86px);
+  padding-bottom: 4rem;
+  background: #f4f8fb;
+  color: var(--stats-ink);
+}
+.stats-toolbar {
+  margin-bottom: 2rem;
+  padding: 2rem 0 1.5rem;
+  border-bottom: 1px solid var(--stats-line);
+  background: linear-gradient(135deg, #fff 0%, #edf8fd 100%);
+}
+.stats-toolbar__inner { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.stats-kicker { display: block; margin-bottom: .2rem; color: var(--stats-blue); font-size: .72rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.stats-toolbar h1 { margin: 0; font-size: clamp(1.75rem, 4vw, 2.65rem); font-weight: 800; letter-spacing: -.035em; }
+.stats-toolbar p { margin: .35rem 0 0; color: var(--stats-muted); }
+.stats-refresh { display: inline-flex; align-items: center; gap: .55rem; padding: .7rem 1rem; border: 1px solid #b9dbea; border-radius: 999px; background: #fff; color: var(--stats-blue-dark); font-weight: 700; white-space: nowrap; }
+.stats-refresh:hover, .stats-refresh:focus { border-color: var(--stats-blue); background: #e8f6fc; color: var(--stats-blue-dark); }
+.stats-overview { margin-bottom: 3rem; }
+.stats-card { padding: 1.35rem; border: 1px solid var(--stats-line); border-radius: 1rem; background: #fff; box-shadow: 0 12px 30px rgba(32, 87, 122, .07); }
+.stats-card--featured { padding: clamp(1.5rem, 4vw, 2.4rem); border: 0; background: linear-gradient(135deg, var(--stats-blue-dark), var(--stats-blue)); color: #fff; box-shadow: 0 22px 55px rgba(8, 74, 130, .22); }
+.stats-card__header, .stats-card__footer, .stats-section-title { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.stats-card__eyebrow { display: block; margin-bottom: .2rem; color: var(--stats-blue); font-size: .67rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.stats-card--featured .stats-card__eyebrow { color: #99dcf5; }
+.stats-card h3 { margin: 0; font-size: 1.08rem; font-weight: 800; }
+.stats-card--featured h3 { font-size: clamp(1.35rem, 3vw, 2rem); }
+.stats-card__percent { color: var(--stats-blue-dark); font-size: 1.8rem; line-height: 1; }
+.stats-card--featured .stats-card__percent { color: #fff; font-size: clamp(2.3rem, 6vw, 4rem); }
+.stats-progress { height: .55rem; margin: 1.2rem 0 .9rem; overflow: hidden; border-radius: 999px; background: #e3edf3; }
+.stats-progress .progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--stats-blue), var(--stats-sky)); }
+.stats-card--featured .stats-progress { height: .7rem; background: rgba(255,255,255,.18); }
+.stats-card--featured .progress-bar { background: #6ed2f4; }
+.stats-card__footer { color: var(--stats-muted); font-size: .84rem; }
+.stats-card__footer strong { color: var(--stats-ink); font-size: 1rem; }
+.stats-card--featured .stats-card__footer, .stats-card--featured .stats-card__footer strong { color: #dff4fc; }
+.stats-section-title { margin-bottom: 1.2rem; }
+.stats-section-title span { color: var(--stats-blue); font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.stats-section-title h2 { margin: .2rem 0 0; font-size: clamp(1.35rem, 3vw, 1.85rem); font-weight: 800; }
+.stats-section-title small { color: var(--stats-muted); white-space: nowrap; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.stats-empty { padding: 3rem 1rem; border: 1px dashed #b9cfdd; border-radius: 1rem; color: var(--stats-muted); text-align: center; }
+.stats-empty i { display: block; margin-bottom: .5rem; color: var(--stats-blue); font-size: 2rem; }
+.stats-empty p { margin: 0; }
+@media (max-width: 991.98px) { .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 575.98px) {
+  .stats-toolbar__inner { align-items: flex-start; flex-direction: column; }
+  .stats-refresh { width: 100%; justify-content: center; }
+  .stats-grid { grid-template-columns: 1fr; }
+  .stats-card__footer { align-items: flex-start; flex-direction: column; gap: .15rem; }
+}
+</style>
+
+<main class="stats-page">
+  <header class="stats-toolbar">
+    <div class="container stats-toolbar__inner">
+      <div>
+        <span class="stats-kicker">Congreso {ano_estadisticas}</span>
+        <h1>Estadísticas de asistencia</h1>
+        <p>Última actualización: {hora_actualizacion} h</p>
+      </div>
+      <button type="button" class="btn stats-refresh" onclick="{funcion_actualiar}" aria-label="Actualizar estadísticas">
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+        Actualizar datos
+      </button>
+    </div>
+  </header>
+
   <div class="container">
-	<div class="col-md-3 col-sm-3">
-		<h3>Asistencia</h3>
-	</div>
-	<div class="col-md-9 col-sm-9">
-	
-			
-			
-				<ul class="nav justify-content-end">
-				<button type="button" class="btn btn-primary mb-3" onClick="{funcion_actualiar}">&nbsp;&nbsp;<i class="bi bi-arrow-clockwise"></i>&nbsp;&nbsp;</button>
-		
-				</ul>
-	
-				
-			
-		
-
-	</div>  
+    {contenido_estadisticas}
   </div>
-</nav>
-
-
-	<div class="container">
-		<div class="row">
-
-			<table width="100%" border="0px" cellspacing="0px" cellpadding="0px">
-			<tr >
-				<td align="center">
-				<br />
-				
-				<h5>EN GENERAL</h5>
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_general}
-				</td>
-			</tr>
-			<tr >
-				<td align="center">
-				<br />
-				<h5>POR DEPARTAMENTO</h5>
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_formosa}
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_bermejo}
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_LAISHI}
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_MATACOS}
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_PATINO}
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_PILAGAS}
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_PILCOMAYO}
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_PIRANE}
-				</td>
-			</tr>
-			<tr >
-				<td>
-					{barra_RAMONLISTA}
-				</td>
-			</tr>
-			<tr >
-				<td align="center">
-				<br />
-				<br />
-
-				
-				</td>
-			</tr>
-			</table>
-
-		</div>
-	</div>
+</main>

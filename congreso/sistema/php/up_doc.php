@@ -136,7 +136,7 @@ function extraer_info(		$file_name_tmp,
 	{ 
 		chmod("$file", 0644);
 		
-				$mysqli -> guardar_archivo_down(
+				$resultado_archivo = $mysqli -> guardar_archivo_down(
 						$sesion_system_03,
 						$sesion_system_06,
 						$id_system_10,
@@ -151,53 +151,90 @@ function extraer_info(		$file_name_tmp,
 						$system_08_path,
 						$system_checked										
 						);
+
+				if ($resultado_archivo === 'Fatal')
+				{
+					return 'Fatal! No se pudo registrar el archivo importado.';
+				}
 						
 				if ( $ext=="csv" )
 				{
-					$cadena_txt = fopen("$file", "r") or exit('Fatal! Hay un error en FOPEN [1]');
-					while(!feof($cadena_txt))
-					{	
-						$array = explode("\n", fgets($cadena_txt));
-						foreach ($array as $value) 
-						{
-							$row = explode(";", $value);			
-							if ( ctype_digit($row[0]) == true and count($row) == '5') // si o si debe tener un id. 0=agregar nuevo producto
-							{				
-								$orden = 			trim($row[0]);
-								$orde_seccion=		trim($row[1]);
-								$congresista=		utf8_encode(trim($row[2]));								
-								$dni=				trim($row[3]);
-								$departamento=		utf8_encode(trim($row[4]));
+					$cadena_txt = fopen($file, 'r');
+					if ($cadena_txt === false)
+					{
+						return 'Fatal! No se pudo abrir el CSV importado.';
+					}
 
-								
-								
-												
-								if ( $orden !='' || $orde_seccion !='' || $congresista !='' || $dni !=''  )
-								{
-									$mysqli -> guardar_dato_extraido(
-									$sesion_system_03,
-									$orden,
-									$orde_seccion,
-									strtoupper($congresista),
-									$dni,
-									strtoupper($departamento)
-									);
-								}
-								
-							}	
-							$system_checked++;
-							$id_system_11 = 				'';
-							$system_11_codigo_barra	=		'';
-							$system_11_producto	=			'';
-							$system_11_precio_costo	=		'';
-							$system_11_precio_mayorista	=	'';
-							$system_11_precio_minorista	=	'';
-							$system_11_unidades	=			'';
-							$system_11_stock	=			'';	
-							$system_11_estado_iva = 		'';
-						}				
+					$insertados = 0;
+					$omitidos = 0;
+					$errores = 0;
+
+					while (($row = fgetcsv($cadena_txt, 0, ';')) !== false)
+					{
+						if (count($row) === 1 && trim((string) $row[0]) === '')
+						{
+							continue;
+						}
+
+						if (count($row) !== 5)
+						{
+							$omitidos++;
+							continue;
+						}
+
+						$orden = trim((string) $row[0]);
+						$orden = preg_replace('/^\xEF\xBB\xBF/', '', $orden);
+						$orden_seccion = trim((string) $row[1]);
+						$congresista = trim((string) $row[2]);
+						$dni = trim((string) $row[3]);
+						$departamento = trim((string) $row[4]);
+						$system_100_ano = '2026';
+
+						if (!ctype_digit($orden) || $orden_seccion === '' || $congresista === '' || $dni === '')
+						{
+							$omitidos++;
+							continue;
+						}
+
+						if (!mb_check_encoding($congresista, 'UTF-8'))
+						{
+							$congresista = mb_convert_encoding($congresista, 'UTF-8', 'Windows-1252');
+						}
+						if (!mb_check_encoding($departamento, 'UTF-8'))
+						{
+							$departamento = mb_convert_encoding($departamento, 'UTF-8', 'Windows-1252');
+						}
+
+						$congresista = mb_strtoupper($congresista, 'UTF-8');
+						$departamento = mb_strtoupper($departamento, 'UTF-8');
+
+						$resultado = $mysqli -> guardar_dato_extraido(
+							$sesion_system_03,
+							$orden,
+							$orden_seccion,
+							$congresista,
+							$dni,
+							$departamento,
+							$system_100_ano
+						);
+
+						if ($resultado === 'Fatal')
+						{
+							$errores++;
+						}
+						else
+						{
+							$insertados++;
+						}
 					}
 					fclose($cadena_txt);
+
+					if ($insertados === 0 && $errores > 0)
+					{
+						return 'Fatal! No se pudo insertar ningun registro del CSV.';
+					}
+
+					return 'Exito: '.$insertados.' registros importados. Omitidos: '.$omitidos.'. Errores: '.$errores.'.';
 					
 				}	
 	}
