@@ -1,0 +1,21 @@
+#php_flag display_startup_errors off
+#php_flag display_errors off
+#php_flag html_errors off
+RewriteEngine On
+
+RewriteCond %{HTTP_HOST} ^pjformosa.com.ar$
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://pjformosa.com.ar/ [L,R=301]
+
+RewriteRule ^sistema/([0-9]+)/([a-zA-Z0-9_-]{1,22}+)$ sistema/index.php?id_system_01=$1&system_01_modulo=$2
+RewriteRule ^login/([0-9]{9,10})/(.{38,46})/([0-9]{9,10})$ sistema/php/valida.php?rr=$1&cc=$2&tt=$3
+RewriteRule ^sistema/perfil sistema/index.php?mod=perfil
+RewriteRule ^login sistema/index.php?mod=login
+RewriteRule ^code/([0-9]{8,8})$ code_pdf.php?code=$1
+
+# php -- BEGIN cPanel-generated handler, do not edit
+# Set the “ea-php82” package as the default “PHP” programming language.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php82 .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit

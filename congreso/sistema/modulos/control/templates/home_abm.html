@@ -1,0 +1,94 @@
+<section>
+	<div class="container">
+		<div class="row position-relative">
+		  
+		  
+
+
+<nav class="navbar">
+  <div class="container">
+  	<div class="col-md-11 col-sm-11">
+		<h3><i class="bi bi-person-fill"></i> {titulo_modulo}</h3>
+	</div>
+	<div class="col-md-1 col-sm-11">
+		<div class="justif-right {no_ver}">		
+			<h4 onClick="{funcion_volver}" class="bi bi-x-lg"></h4>
+		</div>
+	</div>  
+  </div>
+</nav>
+
+
+<form name="abm" id="abm"  method="post">
+<div class="mb-3 {ocultar_cajas}">
+  	<select id="rela_system_07" name="rela_system_07" class="form-control" onChange="cargar_post('modulos/control/php/select_1.php','ver_privilegios','rela_system_07='+this.value);" {disabled}>
+		{PRIVILEGIOS}				
+	</select>
+	<div id="ver_privilegios"></div>
+</div>
+
+<div class="columna-a" style="padding:0px 10px 0px 0px">
+	<div class="mb-3">
+	  <label for="" class="form-label">* Nombre:</label>
+	  <input type="text" class="form-control" id="system_04_nombre" name="system_04_nombre" value="{system_04_nombre}" placeholder="" maxlength="40" style="{alert-nombre}" {disabled_nombre}>
+	</div>
+	
+	<div class="mb-3">
+	  <label for="" class="form-label">* Apellido:</label>
+	  <input type="text" class="form-control" id="system_04_apellido" name="system_04_apellido" value="{system_04_apellido}" placeholder="" maxlength="30" style=" {alert-apellido}" {disabled_apellido}>
+	</div>
+	
+	<div class="mb-3">
+	  <label for="" class="form-label">* DNI:</label>
+	  <input type="text" class="form-control dni" name='system_04_dni' id="system_04_dni"  placeholder="00.000.000" value='{system_04_dni}'  maxlength="11"  style="width: 50%;  {alert-dni}" />
+	</div>	
+	
+	<div class="mb-3">
+	  <label for="" class="form-label">Localidad:</label>
+	  <input type="text" class="form-control" name='system_04_localidad' id="system_04_localidad" value='{system_04_localidad}' maxlength="44" style="{alert-localidad}">
+	</div>	
+	
+	<div class="mb-3">
+	  <label for="" class="form-label">Pueblo/Ciudad:</label>
+	  <input type="text" class="form-control" name='system_04_ciudad' id="system_04_ciudad" value='{system_04_ciudad}' maxlength="44" style="{alert-ciudad}">
+	</div>	
+	
+</div>
+
+<div class="columna-b" style="padding:0px 0px 0px 10px">	
+	
+	<div class="mb-3">
+	  <label for="" class="form-label">* Celular:</label>
+	  <input type="text" class="form-control phone_arg_whatsapp" name='system_04_celular' id="system_04_celular" value='{system_04_celular}'  maxlength="16" style="{alert-cel}">
+	</div>
+	
+	<div class="mb-3">
+	  <label for="" class="form-label">E-mail Institucional</label>
+	  <input type="email" class="form-control"  id="system_04_email" name="system_04_email" placeholder="tuemail@example.com"  value='{system_04_email}'  maxlength="50" style="{alert-email}">
+	</div>
+	
+	<div class="mb-3">
+	  <label for="" class="form-label">Profesi&oacute;n:</label>
+	  <input type="text" class="form-control" name='system_04_profesion' id="system_04_profesion" value='{system_04_profesion}' maxlength="44" style=" width: 89%; float:left; {alert-profesion}">
+	<input type="text" class="form-control" name='system_04_profesion_sigla' id="system_04_profesion_sigla" value='{system_04_profesion_sigla}' maxlength="12" style=" width:10%; float:left; {alert-profesion-sig}">
+	  </div>
+	  
+
+		<div class="mb-3">
+		<button type="button" class="btn btn-primary mb-3" onClick="{funcion_guardar}"><i class="bi bi-person-fill"></i> {boton_modulo}&nbsp;&nbsp;</button>
+		<span class="{ocultar_ediclave}"><button type="button" class="btn btn-danger mb-3" onClick="{funcion_reset_clave}"><i class="bi bi-key-fill"></i></button></span>
+		{BOTON_SALIR}
+		</div>	
+</div>
+</form>
+<form name="abm2" id="abm2"  method="post">	
+	<div class="columna-b">
+		<div class="tabl" id="content_reset"></div>
+	</div>	
+</form>
+
+		</div>
+	</div>
+</section>
+
+
