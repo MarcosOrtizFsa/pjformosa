@@ -1,0 +1,23 @@
+	<li class="fil-10  file-mov-50">
+	<input type='text' value='{system_2000_dni}' class="form-control dni" placeholder="DNI" maxlength="10" disabled>
+	</li>		
+	<li class="fil-30 file-mov-50">
+		<input type='text'  class="form-control" name='system_2000_apellido' id="system_2000_apellido"  value='{system_2000_apellido}' style="float:left; width:50%;"  placeholder="Apellido" maxlength="33">
+		<input type='text'  class="form-control" name='system_2000_nombre' id="system_2000_nombre" value='{system_2000_nombre}' style="width:50%; float:left;"  placeholder="Nombre" maxlength="44">
+	</li>
+	<li class="fil-10 file-mov-50" id="caja_barrio">
+	<select class="form-control" name='rela_system_502'  id="rela_system_502" style="width:100%; float:left;">
+		<option value="">Elija Localidad (Cirto.)</option>
+		{BARRIOS}			
+	</select>
+	</li>
+	<li class="fil-20 file-mov-50">
+		<input type='text'  class="form-control" name='system_2000_barrio'  id="system_2000_barrio" value='{system_2000_barrio}'  placeholder="Barrio" maxlength="60">
+	</li>
+	<li class="fil-20 file-mov-50">
+		<input type='text'  class="form-control" name='system_2000_domicilio'  id="system_2000_domicilio" value='{system_2000_domicilio}'  placeholder="Domicilio" maxlength="60">
+	</li>
+	<li class="fil-10 file-mov-50 align-right tipo-send">
+	<h4 onClick="{funcion_guardar}" class="bi bi-caret-right-square-fill"></h4>
+	<h4 onClick="{funcion_volver}" class="bi bi-x-lg"></h4>
+	</li> 

@@ -41,8 +41,8 @@ header('Content-Type: text/html; charset=utf-8');
             <div class="container portal-container hero-content">
                 <div class="hero-copy">
                     <span class="hero-kicker">Partido Justicialista · Formosa</span>
-                    <h1 id="hero-title">La actualidad de nuestra provincia, en un solo lugar.</h1>
-                    <p>Noticias, encuentros y acciones que construyen una Formosa unida.</p>
+                    <h1 id="hero-title">Info Modelo Formose&ntilde;o</h1>
+                    <p>Construyendo la unidad más que nunca.</p>
                     <a class="btn hero-button" href="#noticias">Ver novedades</a>
                 </div>
             </div>

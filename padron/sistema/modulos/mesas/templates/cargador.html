@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<base href="{dir_base}" />
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" /> 
+<meta HTTP-EQUIV="Cache-Control" CONTENT ="no-cache">
+<link rel="stylesheet" href="../css/admin_style.css" type="text/css">
+
+<script type="text/javascript" src="../scripts/ajax.js"></script>
+<script type="text/javascript" src="../scripts/admin.js"></script>
+<script type="text/javascript" src="../scripts/jquery-1.7.1.js"></script>
+<script type="text/javascript" src="../scripts/load.js"></script>
+<script type="text/javascript" src="../scripts/uploader.js"></script>
+
+
+<title>Cargador</title>
+</head>
+<body>
+
+
+<table width="100%" border="1px" cellpadding="10px" cellspacing="0" >
+  <tr bgcolor="#CCCCCC">
+    <td ><strong>ARCHIVOS CSV PARA MESAS Y ESCUELAS</strong></td>
+  </tr>
+  
+  {optengo_archivo}
+  
+ 
+   <tr>
+    <td>
+	
+	<input type="file" 	id="archivos" onChange="{funcion_cargar_archivo}" style="float:left; width:90px;">
+	{reset_bd}
+	<div id="estado_de_carga" style="float:left;"><a href="modulos/mesas/templates/mesas-modelo.csv" target="news"  ><img src="../../image/iconos/page_excel.png"> Modelo</a></div>
+	
+	</td>
+  </tr>
+  <tr>
+    <td>
+	
+
+	Total mesas: <strong>{total_mesas}</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="estado_ejecucion"><button class="btn btn-outline-secondary" type="button" id="button-addon2" onclick="{funcion_crear_tablas_fiscales}">Crear tabla de mesas</button></span>
+	
+	
+	</td>
+  </tr>
+</table>
+
+
+
+
+
+</body>
+</html>
+

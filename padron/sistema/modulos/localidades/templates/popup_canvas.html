@@ -1,0 +1,33 @@
+  <div class="offcanvas-header  navbar-warning bg-warning">
+  
+    <h5 class="offcanvas-title" id="offcanvasRightLabel">{title_canvas}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  
+  </div>
+  <div class="offcanvas-body">
+
+			<form name="abm2" id="abm2"  method="post">
+			<div class="conten_panel" style="scrollbar-width: auto;">
+			<div class="tabl">
+				<li class="fil-75  file-mov-ocult strong">
+				Pueblo/Localidad circuito {tema}
+				</li>	
+				<li class="fil-25 file-mov-ocult strong  align-right">
+				Tarea
+				</li>  
+			</div>	
+
+		  {LISTA_PUEBLOS}
+	
+			<div class="tabl" id="content_pop" style="margin-bottom:200px;">
+				<li class="fil-70">	
+					{PAGINAR}{EXCELES}			
+				</li>
+				<li class="fil-30 file-mov-100 align-right" onclick="{funcion_agregar}" style="cursor: pointer;">
+				<h3 class="bi bi-plus-circle"></h3>
+				</li>	
+			</div>
+			</div>
+			</form>							
+								
+  </div>

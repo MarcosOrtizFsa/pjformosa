@@ -1,0 +1,10 @@
+Options -Indexes
+RewriteEngine On
+
+# Algunos servidores Apache/FastCGI no entregan Authorization a PHP por
+# defecto. Esta regla habilita Bearer sin afectar X-API-Key.
+SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
+# API v1: las rutas públicas son estables aunque cambien los archivos PHP.
+RewriteRule ^v1/salud/?$ v1/salud.php [L,QSA]
+RewriteRule ^v1/personas/([0-9]{7,8})/?$ v1/personas.php?dni=$1 [L,QSA]

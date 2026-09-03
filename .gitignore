@@ -1,3 +1,19 @@
 .vscode/
 backups/
 datos.txt
+
+# Archivos de carga generados por el módulo Congreso.
+congreso/archivos/*
+!congreso/archivos/.gitkeep
+
+# Datos sensibles o generados por el sistema privado de padrón.
+padron/dnis/*
+padron/archivos/*
+padron/tmp/*
+padron/imagenes/*
+!padron/dnis/.gitkeep
+!padron/archivos/.gitkeep
+!padron/archivos/.htaccess
+!padron/tmp/.gitkeep
+!padron/tmp/.htaccess
+!padron/imagenes/.gitkeep

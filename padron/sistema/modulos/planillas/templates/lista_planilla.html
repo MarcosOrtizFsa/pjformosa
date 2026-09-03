@@ -1,0 +1,79 @@
+<nav class="navbar navbar-light bg-light">
+  <div class="container">
+  	<div class="col-md-8 col-sm-12">
+		<h3>Planilla N&deg; {id_system_601} de {system_apellido_nombre}</h3>
+	</div>
+	<div class="col-md-4 col-sm-12">
+	
+			<ul class="nav justify-content-end ">
+				 <form name="busqueda"><li class="nav-item  file-mov-ocult">
+					<div class="input-group mb-3">
+					
+					  <input type="text" class="form-control dni" placeholder="Por DNI" aria-label="Recipient's username" aria-describedby="button-addon2" style="width:150px;" name="variable_buscar" id="variable_buscar" maxlength="10"  onKeyPress="return {funcion_busqueda_enter}">
+					  <button class="btn btn-outline-secondary" type="button" id="button-addon2" onclick="{funcion_busqueda}"><i class="bi bi-search"></i></button>
+					
+					</div>
+					
+										 
+					
+				  </li>
+				
+				  </form>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<h3 onClick="{funcion_volver}" class="bi bi-x-lg"></h3>
+				  
+			
+				</ul>
+				
+		
+	</div>  
+  </div>
+</nav>
+
+<section>
+	<div class="container">
+
+	<form name="abm2" id="abm2"  method="post">
+ 		<div class="tabl">
+				<li class="fil-10  file-mov-ocult strong">
+				DNI
+				</li>
+				<li class="fil-40  file-mov-ocult strong">
+				Apellido Nombre
+				</li>	
+				<li class="fil-30  file-mov-ocult strong">
+				Escuela
+				</li>
+				<li class="fil-10  file-mov-ocult strong">
+				Mesa
+				</li>
+				<li class="fil-10 file-mov-100 strong align-right">
+				Tareas
+				</li>  
+			</div>
+
+				{LISTADO}	
+				
+			<div class="tabl">
+				<li class="fil-50 file-mov-50">	
+					{PAGINAR} {EXCELES}			
+				</li>
+				<li class="fil-50 file-mov-50 align-right" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight" onClick="{funcion_pop_canvas}" >
+					Agregar DNI a esta lista de {system_apellido_nombre} <i class="bi bi-plus-circle"></i>
+				</li>	
+			</div>
+		</form>
+	
+	</div> 
+</section>
+
+
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
+  <div id="popup_canvas"></div> 
+</div>
+<div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasExample" aria-labelledby="offcanvasExampleLabel">
+  <div id="popup_canvas_left"></div> 
+</div>
+
+
+
+

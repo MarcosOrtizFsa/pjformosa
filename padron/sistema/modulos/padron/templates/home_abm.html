@@ -1,0 +1,28 @@
+	<li class="fil-10  file-mov-50">
+	<input type='text' value='{system_2000_dni}' name='system_2000_dni'  id="system_2000_dni"  class="form-control dni"  placeholder="DNI" maxlength="10" {disabled}>
+	</li>		
+	<li class="fil-30 file-mov-50">
+		<input type='text'  class="form-control"  name='system_2000_apellido'  id="system_2000_apellido"  value='{system_2000_apellido}' style="float:left; width:40%;"  placeholder="Apellido"  {disabled}>
+		<input type='text'  class="form-control"   name='system_2000_nombre'  id="system_2000_nombre" value='{system_2000_nombre}' style="width:60%; float:left;"  placeholder="Nombre"   {disabled}>
+	</li>
+	<li class="fil-5 file-mov-50">
+	<select class="form-control" id="system_2000_sexo" name="system_2000_sexo">
+	<option value=''>Genero</option>
+		{SEXO}				
+	</select>
+	</li>
+	<li class="fil-20 file-mov-50" id="caja_barrio">
+	<select class="form-control" id="rela_system_504" name="rela_system_504">
+		{LISTADO_PUEBLOS}				
+	</select>
+	</li>
+	<li class="fil-5 file-mov-50">
+		<input type='text'  class="form-control" name='system_2000_circuito'  id="system_2000_circuito" value="{system_2000_circuito}" placeholder="00A" maxlength="3" >
+	</li>
+	<li class="fil-25 file-mov-50">
+		<input type='text'  class="form-control" name='system_2000_domicilio'  id="system_2000_domicilio" value='{system_2000_domicilio}'  placeholder="Domicilio" maxlength="80">
+	</li>
+	<li class="fil-5 file-mov-50 align-right tipo-send">
+	<h4 onClick="{funcion_guardar}" class="bi bi-caret-right-square-fill"></h4>
+	<h4 onClick="{funcion_volver}" class="bi bi-x-lg"></h4>
+	</li> 

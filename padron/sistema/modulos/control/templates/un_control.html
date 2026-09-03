@@ -1,0 +1,23 @@
+<div class="tabl">
+	<li class="fil-5  file-mov-ocult">
+		{id_system_03}
+	</li>		
+	<li class="fil-40 file-mov-80">
+		<a href="javascript:{funcion_editar};" title="Editar datos: {system_04_nombre}, {system_04_apellido}">{system_04_nombre}, {system_04_apellido}</a>
+	</li>
+	<li class="fil-20 file-mov-20">
+		<span class="dni">{system_04_dni}</span>
+	</li>
+	<li class="fil-20 file-mov-25" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample" aria-controls="offcanvasExample" onClick="{funcion_pop_asignaciones}" title="Asignaciones">
+		 <i class="bi bi-file-person"></i><span class="minitex">{system_07_nombre}</span>
+	</li>
+    <li class="fil-15 file-mov-75 align-right">	
+		{funcion_link_banca}{funcion_link_whatsapp}	
+		<a href="javascript:;" onclick="{on_off}" title="{estado}"><i class="{system_03_estado}"></i></a>
+		<span  type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight" onClick="{funcion_pop_canvas}" title="Configurar permisos"><i class="bi bi-card-checklist"></i></span>
+		<a href="javascript:;" onclick="{funcion_editar}" title="Editar: {system_04_nombre} {system_04_apellido}"><i class="bi bi-pencil-square"></i></a>
+		<a href="javascript:;" onclick="{funcion_borrar}" title="Borrar: {system_04_nombre} {system_04_apellido}"><i class="bi bi-trash-fill"></i></a>	
+		
+	</li>
+</div>	
+

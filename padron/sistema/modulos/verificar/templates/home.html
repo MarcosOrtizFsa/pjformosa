@@ -1,0 +1,38 @@
+<nav class="navbar navbar-light bg-light">
+  <div class="container">
+	<div class="col-md-6 col-sm-12  file-100-ocult" id="cajita">
+		{formulario_autor}
+	</div>
+	<div class="col-md-6 col-sm-12  file-100-ocult">
+		<ul class="nav justify-content-end ">
+		  <form name="busqueda">
+			<div class="input-group">
+					<input autofocus  class="form-control form-control-lg dni" type="text"  name="variable_buscar" id="variable_buscar" placeholder="DNI..." aria-label="Recipient's username" aria-describedby="button-addon2" maxlength="10"  onKeyPress="return {funcion_busqueda_enter}">
+					<button class="btn btn-outline-secondary" type="button" id="button-addon2" onclick="{funcion_busqueda}"><i class="bi bi-search"></i></button>	
+				
+			</div>
+		  </form>&nbsp;
+		  
+		</ul>
+	</div>  
+  </div>
+</nav>
+
+
+<div class="container">
+	<div class="row" style="border:1px solid #ccc; margin:0px; ">	
+
+		<form name="abm2" id="abm2"  method="post">
+				 		
+				
+				<div id="content_nuevo">{RESULTADO}</div>
+						
+		
+		</form>		
+			  
+	</div>
+	<div class="row" >
+	{total_total} - <i class="bi bi-eye-fill"  onclick="{informe}"></i>
+	</div>
+</div>
+

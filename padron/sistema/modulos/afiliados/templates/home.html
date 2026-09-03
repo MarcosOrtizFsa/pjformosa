@@ -1,0 +1,89 @@
+<nav class="navbar navbar-light bg-light">
+  <div class="container">
+	<div class="col-md-9 col-sm-12">
+		<h3>{titulo_modulo}</h3>
+	</div>
+	<div class="col-md-3 col-sm-12">
+		
+		 <form name="busqueda">
+			<div class="input-group">
+					<input autofocus  class="form-control form-control-lg dni" type="text"  name="variable_buscar" id="variable_buscar" placeholder="VERIFICAR DNI..." aria-label="Recipient's username" aria-describedby="button-addon2" maxlength="10"  onKeyPress="return {funcion_busqueda_enter}">
+					<button class="btn btn-outline-secondary" type="button" id="button-addon2" onclick="{funcion_busqueda}"><i class="bi bi-search"></i></button>	
+				
+			</div>
+		  </form>&nbsp;	
+
+	</div>  
+  </div>
+</nav>
+
+
+	<div class="container">
+		<div class="row">
+		  
+
+			
+			
+			 <div class="tabl">
+				<li class="fil-5  file-mov-ocult strong">
+				Desc.
+				</li>
+				<li class="fil-15  file-mov-ocult strong align-center" id="busca_id">
+				<i class="bi bi-zoom-in" onclick="cargar_post('modulos/afiliados/php/busca_id.php','busca_id','')"></i> N&deg; Folio
+				</li>	
+				<li class="fil-20  file-mov-ocult strong">
+				Cargador
+				</li>
+				<li class="fil-10  file-mov-ocult strong">
+				Sede
+				</li>
+				<li class="fil-10  file-mov-ocult strong align-center">
+				Total 
+				</li>
+				<li class="fil-30 file-mov-ocult strong">
+				Observaciones
+				</li>
+				<li class="fil-10 file-mov-ocult strong  align-right">
+				<select class="form-select form-select-sm"  name="system_estado" id="system_estado" onchange="{funcion_selector_estado}">
+						<option>Avales</option>
+						<option value="0">Pendientes</option>
+						<option value="1">Entregados</option>
+						<option value="2">Ver todos</option>
+				</select>
+				</li>  
+			</div>	 
+			<form name="abm" id="abm"  method="post">		
+				<div class="tabl" id="content_n"></div>
+				{LISTADO}
+			</form>			
+			<div class="tabl">
+				<li class="fil-10 file-mov-50">	
+					{PAGINAR}			
+				</li>
+				<li class="fil-30 file-mov-50">	
+					 <i  onclick="{funcion_agregar_planilla}"  style="cursor: pointer;" class="bi bi-plus-circle"></i> Folio	
+				</li>
+				<li class="fil-10  file-mov-ocult strong align-center">	
+					<strong style="cursor: pointer;"  onclick="{funcion_ver_afiliados}">{total_afiliados}</strong> 			
+				</li>
+				<li class="fil-50  file-mov-ocult">
+					{EXCELES}
+				</li>	
+			</div>
+			
+			
+			
+			
+			
+
+			
+
+
+
+		  
+		</div>
+	</div>
+<br />
+<br />
+<br />
+

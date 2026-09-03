@@ -1,0 +1,119 @@
+<nav class="navbar navbar-light bg-light">
+  <div class="container">
+  	<div class="col-md-6 col-sm-12">
+		<h3>{titulo_modulo}</h3>
+	</div>
+	<div class="col-md-6 col-sm-12">
+	
+			
+				
+				 <form name="busqueda">
+
+		
+				 	<div style="width:30%; height:100%; float:left;">
+					
+						<div class="form-check">
+						  <input class="form-check-input" type="radio" name="variable_tipo" id="variable_tipo"  value="0" checked>
+						  <label class="form-check-label" for="flexRadioDefault2" style=" font-size:11px; padding:3px;">
+							Agregar
+						  </label>
+						</div>
+						
+						<div class="form-check">
+						  <input class="form-check-input" type="radio" name="variable_tipo" id="variable_tipo"  value="1">
+						  <label class="form-check-label" for="flexRadioDefault2" style=" font-size:11px; padding:3px;">
+							Buscar
+						  </label>
+						</div>
+						
+					</div>
+
+					<div style="width:60%; height:100%; float:left;">
+						<div class="input-group">
+							<input autofocus  class="form-control form-control-lg dni" type="text"  name="variable_buscar" id="variable_buscar" placeholder="DNI..." aria-label="Recipient's username" aria-describedby="button-addon2" maxlength="10"  onKeyPress="return {funcion_busqueda_enter}">
+							<button class="btn btn-outline-secondary" type="button" id="button-addon2" onclick="{funcion_busqueda}"><i class="bi bi-search"></i></button>	
+						</div>
+					</div>
+					<div style="width:10%; float:left; padding:9px;">
+						<h3 onClick="{funcion_volver}" style="cursor:pointer; margin:0px; float:right;" title="Volver a Folios" class="bi bi-x-lg"></h3>
+					</div>
+					
+				 
+					
+				  	
+					</form>&nbsp;
+				  	
+					
+						
+				  
+				  
+			
+				
+		
+		
+	</div>	 
+  </div>
+</nav>
+
+<section>
+	<div class="container">
+
+	<form name="abm2" id="abm2"  method="post">
+ 		<div class="tabl">
+				<li class="fil-10  file-mov-ocult strong">
+				DNI
+				</li>
+				<li class="fil-30  file-mov-ocult strong">
+				Apellido Nombre del afiliado
+				</li>	
+				<li class="fil-20  file-mov-ocult strong">
+				Domicilio
+				</li>
+				<li class="fil-10  file-mov-ocult strong">
+				Departamento
+				</li>
+				<li class="fil-15  file-mov-ocult strong">
+				Localidad
+				</li>
+				<li class="fil-10  file-mov-ocult strong">
+				Afiliado
+				</li>
+				<li class="fil-5 file-mov-100 strong align-right">
+				Quitar
+				</li>  
+			</div>
+
+				{LISTADO}	
+				
+			<div class="tabl" style="background: #eee; margin-bottom:200px;">
+				<li class="fil-40 file-mov-100 minitex">	
+					&nbsp;{PAGINAR}&nbsp;&nbsp;&nbsp;Total: {cuento_total}		
+				</li>
+				<li class="fil-20 file-mov-100 minitex" >
+					Observaciones del folio:
+				</li>
+				<li class="fil-40 file-mov-100 minitex" >
+					<textarea  class="form-control" rows="2" name="" style="font-size:12px;" placeholder="Observaciones..." onchange="{salvar_observacion}">{system_701_observaciones}</textarea>
+				</li>
+				
+				<!--<li class="fil-50 file-mov-100" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight" onClick="{funcion_pop_canvas}" >
+					Agregar DNI a este folio de {system_apellido_nombre} <i class="bi bi-plus-circle"></i>
+				</li>-->	
+			</div>
+		</form>
+	
+	</div> 
+</section>
+
+
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
+  <div id="popup_canvas"></div> 
+</div>
+<div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasExample" aria-labelledby="offcanvasExampleLabel">
+  <div id="popup_canvas_left"></div> 
+</div>
+
+
+
+

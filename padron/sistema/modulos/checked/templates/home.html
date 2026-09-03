@@ -1,0 +1,67 @@
+<nav class="navbar navbar-light bg-light">
+  <div class="container">
+	<div class="col-md-9 col-sm-9">
+		<h4>{titulo_modulo}</h4>
+	</div>
+	<div class="col-md-3 col-sm-3">		
+		<ul class="nav justify-content-end">	
+		<button type="button" class="btn btn-primary" onClick="{funcion_refres}"><i class="bi bi-arrow-clockwise"></i></button>
+		</ul>
+	</div>  
+  </div>
+</nav>
+
+
+
+<div class="container">
+	<div class="row">
+	
+			<div class="tabl">
+				<li class="fil-10  file-mov-ocult strong">
+				N&deg; Planilla
+				</li>
+				<li class="fil-20  file-mov-ocult strong">
+				Dirigente
+				</li>
+				<li class="fil-50  file-mov-ocult strong">
+				Progreso
+				</li>
+				<li class="fil-10  file-mov-ocult strong align-center">
+				&nbsp;
+				</li>		
+			</div>	 		
+						
+				{LISTADO}
+						
+			<div class="tabl">
+				<li class="fil-30  file-mov-100 ">
+				&nbsp;SIGUIENTE  {PAGINAR}
+				</li>
+				<li class="fil-60  file-mov-100">
+				&nbsp;
+				</li>
+				<li class="fil-5  file-mov-50">
+				{no_voto}
+				</li>		
+				<li class="fil-5  file-mov-50">
+				{si_voto}
+				</li>
+			</div>	
+			
+
+		
+
+
+	</div>		  
+</div>
+ 
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
+  <div id="popup_canvas"></div> 
+</div>
+<div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasExample" aria-labelledby="offcanvasExampleLabel">
+  <div id="popup_canvas_left"></div> 
+</div>
+
+
+

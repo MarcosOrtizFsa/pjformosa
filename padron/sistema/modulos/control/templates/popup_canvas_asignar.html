@@ -1,0 +1,25 @@
+  <div class="offcanvas-header">
+  
+    <h5 class="offcanvas-title" id="offcanvasRightLabel">{title_canvas}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  
+  </div>
+  <div class="offcanvas-body">
+
+		<ul class="list-group">		
+		  <li class="list-group-item active" aria-current="true">
+		  <h3>{system_03_mesa}</h3>
+		  </li>
+		 	
+			<select  class="form-control" onChange="{funcion_escuela}" style="width:100%; float:none;"> 
+			<option value="">ESCUELA</option>
+			
+					{MESAS}
+				<option value="R">RESET</option>
+			</select> 
+
+			<div  id="ver_mesas"  style="width:100%; float:none;"></div>
+		  	<div class="{ver_reset} minitex" onclick="{funcion_mover_escuela}">RESET</div>
+		</ul>								
+								
+  </div>
