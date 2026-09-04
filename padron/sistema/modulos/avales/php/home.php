@@ -1,355 +1,132 @@
 <?php
-session_start();
-include "../../../../lib/template.inc";
-include "../../../../lib/mysql_conect.php";
-include "../../../php/constructor_sql.php";
-include "../../../php/abm.php";
-include "../../../php/funciones.php";
+declare(strict_types=1);
+require_once __DIR__.'/avales_bootstrap.php';
 
-$t = new _template('../templates');
-$t->set_file(array(
-	'ver'			=> "home.html",
-	'una_planilla'		=> "una_planilla.html"
-	));
+$pdo=avales_pdo();$usuarioId=avales_usuario();$csrf=avales_csrf();
+$puedeAgregar=avales_permiso($pdo,'A');$puedeModificar=avales_permiso($pdo,'M');$puedeEliminar=avales_permiso($pdo,'B');$puedeDescargar=avales_permiso($pdo,'D')||avales_permiso($pdo,'V');
+$mensaje=null;$tipoMensaje='success';$accion=(string)($_POST['accion']??'');$campanaId=(int)($_POST['campana_id']??0);$folioId=(int)($_POST['folio_id']??0);
 
-$num_filas="50";	
-if ( $mas=='' or $mas=='0' )
-{
-$LIMITE =" limit 0,$num_filas ";
+try{
+    if($accion!=='')avales_validar_csrf();
+    if($accion==='crear_campana'){
+        if(!$puedeAgregar)throw new RuntimeException('No tenés permiso para crear campañas.');
+        $nombre=trim((string)($_POST['nombre']??''));$anio=(int)($_POST['anio']??0);
+        if($nombre===''||$anio<2000||$anio>2100)throw new RuntimeException('Indicá un nombre y un año válidos.');
+        $pdo->beginTransaction();
+        // Solo una campaña queda operativa; las anteriores conservan su historia.
+        $pdo->exec("UPDATE padron_campanas_avales SET estado='cerrada' WHERE estado='activa'");
+        $stmt=$pdo->prepare("INSERT INTO padron_campanas_avales(nombre,anio,estado)VALUES(?,?,'activa')");$stmt->execute([$nombre,$anio]);$campanaId=(int)$pdo->lastInsertId();$pdo->commit();$mensaje='Campaña creada correctamente.';
+    }
+    if($accion==='crear_folio'){
+        if(!$puedeAgregar)throw new RuntimeException('No tenés permiso para crear folios.');
+        $numero=(int)($_POST['numero']??0);$sedeId=(int)($_POST['sede_id']??0);$fecha=(string)($_POST['fecha']??'');$obs=trim((string)($_POST['observaciones']??''));$fechaValida=DateTimeImmutable::createFromFormat('!Y-m-d',$fecha);
+        if($campanaId<=0||$numero<=0||!$fechaValida||$fechaValida->format('Y-m-d')!==$fecha)throw new RuntimeException('Completá campaña, número y fecha del folio.');
+        $stmt=$pdo->prepare("INSERT INTO padron_folios_avales(campana_id,sede_id,numero,fecha,observaciones,estado,creado_por) SELECT id,?,?,?,?,'abierto',? FROM padron_campanas_avales WHERE id=? AND estado='activa'");$stmt->execute([$sedeId?:null,$numero,$fecha,$obs?:null,$usuarioId,$campanaId]);
+        if($stmt->rowCount()!==1)throw new RuntimeException('La campaña seleccionada no está activa.');$folioId=(int)$pdo->lastInsertId();$mensaje="Folio {$numero} creado y listo para cargar.";
+    }
+    if($accion==='agregar_lista'){
+        if(!$puedeAgregar)throw new RuntimeException('No tenés permiso para agregar avales.');
+        $valores=preg_split('/[^0-9.]+/',(string)($_POST['lista_dni']??''),-1,PREG_SPLIT_NO_EMPTY)?:[];
+        $dnis=[];foreach($valores as $valor){$normalizado=avales_dni($valor);if($normalizado)$dnis[$normalizado]=$normalizado;}
+        if(!$dnis||$folioId<=0)throw new RuntimeException('Pegá al menos un DNI válido.');
+        $pdo->beginTransaction();
+        $stmt=$pdo->prepare('SELECT f.campana_id,f.estado,c.estado campana_estado FROM padron_folios_avales f INNER JOIN padron_campanas_avales c ON c.id=f.campana_id WHERE f.id=? FOR UPDATE');$stmt->execute([$folioId]);$folioBloqueado=$stmt->fetch();
+        if(!$folioBloqueado||!in_array($folioBloqueado['estado'],['borrador','abierto'],true)||$folioBloqueado['campana_estado']!=='activa')throw new RuntimeException('El folio o su campaña no están abiertos.');
+        $campanaId=(int)$folioBloqueado['campana_id'];
+        $ocupacion=$pdo->prepare("SELECT SUM(estado<>'anulado') cantidad,COALESCE(MAX(posicion),0) ultima FROM padron_avales WHERE folio_id=?");$ocupacion->execute([$folioId]);$datosOcupacion=$ocupacion->fetch();$cantidad=(int)$datosOcupacion['cantidad'];$posicion=(int)$datosOcupacion['ultima'];
+        $buscar=$pdo->prepare("SELECT p.id FROM padron_personas p INNER JOIN padron_afiliaciones af ON af.persona_id=p.id AND af.estado='activa' WHERE p.dni=? LIMIT 1");
+        $repetido=$pdo->prepare("SELECT 1 FROM padron_avales WHERE campana_id=? AND persona_id=? AND estado<>'anulado' LIMIT 1");
+        $insertar=$pdo->prepare("INSERT INTO padron_avales(folio_id,campana_id,persona_id,posicion,estado)VALUES(?,?,?,?,'registrado')");
+        $agregados=0;$omitidos=[];
+        foreach($dnis as $dniLista){
+            if($cantidad>=AVALES_LIMITE_FOLIO){$omitidos[]=$dniLista.' (sin lugar)';continue;}
+            $buscar->execute([$dniLista]);$personaId=(int)$buscar->fetchColumn();if($personaId<=0){$omitidos[]=$dniLista.' (no afiliado)';continue;}
+            $repetido->execute([$campanaId,$personaId]);if($repetido->fetchColumn()){$omitidos[]=$dniLista.' (repetido)';continue;}
+            $insertar->execute([$folioId,$campanaId,$personaId,++$posicion]);
+            $pdo->prepare("UPDATE padron_candidatos_avales SET estado='asignado',actualizado_en=NOW() WHERE campana_id=? AND persona_id=?")->execute([$campanaId,$personaId]);
+            $cantidad++;$agregados++;
+        }
+        $pdo->commit();$mensaje="Se incorporaron {$agregados} personas.".($omitidos?' Omitidos: '.implode(', ',$omitidos):'');$tipoMensaje=$agregados>0?'success':'warning';
+    }
+    if($accion==='agregar_aval'){
+        if(!$puedeAgregar)throw new RuntimeException('No tenés permiso para agregar avales.');
+        $dni=avales_dni((string)($_POST['dni']??''));if(!$dni||$folioId<=0)throw new RuntimeException('Ingresá un DNI válido.');
+        $pdo->beginTransaction();
+        $stmt=$pdo->prepare('SELECT f.id,f.campana_id,f.estado,f.numero,c.estado campana_estado FROM padron_folios_avales f INNER JOIN padron_campanas_avales c ON c.id=f.campana_id WHERE f.id=? FOR UPDATE');$stmt->execute([$folioId]);$folioBloqueado=$stmt->fetch();
+        if(!$folioBloqueado||!in_array($folioBloqueado['estado'],['borrador','abierto'],true)||$folioBloqueado['campana_estado']!=='activa')throw new RuntimeException('El folio o su campaña no están abiertos para incorporar personas.');
+        $campanaId=(int)$folioBloqueado['campana_id'];
+        $stmt=$pdo->prepare('SELECT p.id,p.apellido,p.nombre,af.estado afiliacion_estado FROM padron_personas p INNER JOIN padron_afiliaciones af ON af.persona_id=p.id WHERE p.dni=? LIMIT 1');$stmt->execute([$dni]);$personaAgregar=$stmt->fetch();
+        if(!$personaAgregar||$personaAgregar['afiliacion_estado']!=='activa')throw new RuntimeException("El DNI {$dni} no tiene una afiliación activa.");
+        $stmt=$pdo->prepare("SELECT f.numero FROM padron_avales a INNER JOIN padron_folios_avales f ON f.id=a.folio_id WHERE a.campana_id=? AND a.persona_id=? AND a.estado<>'anulado' LIMIT 1");$stmt->execute([$campanaId,(int)$personaAgregar['id']]);$folioExistente=$stmt->fetchColumn();
+        if($folioExistente!==false)throw new RuntimeException("El DNI {$dni} ya integra el folio {$folioExistente} de esta campaña.");
+        $stmt=$pdo->prepare("SELECT COUNT(*) cantidad,COALESCE(MAX(posicion),0) ultima FROM padron_avales WHERE folio_id=? AND estado<>'anulado'");$stmt->execute([$folioId]);$ocupacion=$stmt->fetch();
+        if((int)$ocupacion['cantidad']>=AVALES_LIMITE_FOLIO)throw new RuntimeException('El folio ya alcanzó el límite de 15 personas.');
+        $stmt=$pdo->prepare("INSERT INTO padron_avales(folio_id,campana_id,persona_id,posicion,estado)VALUES(?,?,?,?,'registrado')");$stmt->execute([$folioId,$campanaId,(int)$personaAgregar['id'],(int)$ocupacion['ultima']+1]);
+        $pdo->prepare("UPDATE padron_candidatos_avales SET estado='asignado',actualizado_en=NOW() WHERE campana_id=? AND persona_id=?")->execute([$campanaId,(int)$personaAgregar['id']]);
+        $pdo->commit();$mensaje=$personaAgregar['apellido'].' '.$personaAgregar['nombre'].' fue incorporado al folio.';
+    }
+    if($accion==='anular_aval'){
+        if(!$puedeEliminar)throw new RuntimeException('No tenés permiso para retirar avales.');$avalId=(int)($_POST['aval_id']??0);
+        $stmt=$pdo->prepare("UPDATE padron_avales a INNER JOIN padron_folios_avales f ON f.id=a.folio_id SET a.estado='anulado',a.observaciones=CONCAT_WS(' ',a.observaciones,?) WHERE a.id=? AND a.folio_id=? AND a.legacy_id IS NULL AND f.estado IN('borrador','abierto')");$stmt->execute(['Retirado el '.date('d/m/Y').' por usuario '.$usuarioId.'.',$avalId,$folioId]);
+        if($stmt->rowCount()!==1)throw new RuntimeException('No se puede retirar ese aval histórico o de un folio cerrado.');
+        $pdo->prepare("UPDATE padron_candidatos_avales ca INNER JOIN padron_avales a ON a.persona_id=ca.persona_id AND a.campana_id=ca.campana_id SET ca.estado='preseleccionado',ca.actualizado_en=NOW() WHERE a.id=?")->execute([$avalId]);
+        $mensaje='El aval fue retirado del folio.';
+    }
+    if($accion==='cambiar_folio'){
+        if(!$puedeModificar)throw new RuntimeException('No tenés permiso para modificar folios.');$estado=(string)($_POST['estado']??'');$obs=trim((string)($_POST['observaciones']??''));
+        if(!in_array($estado,['abierto','cerrado','observado','anulado'],true))throw new RuntimeException('Estado de folio inválido.');
+        $stmt=$pdo->prepare('UPDATE padron_folios_avales SET estado=?,observaciones=? WHERE id=?');$stmt->execute([$estado,$obs?:null,$folioId]);$mensaje='El folio fue actualizado.';
+    }
+}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$mensaje=$e instanceof RuntimeException?$e->getMessage():'No se pudo completar la operación.';$tipoMensaje='danger';}
+
+$campanas=$pdo->query("SELECT c.*,(SELECT COUNT(*)FROM padron_folios_avales f WHERE f.campana_id=c.id)total_folios,(SELECT COUNT(*)FROM padron_avales a WHERE a.campana_id=c.id AND a.estado<>'anulado')total_avales FROM padron_campanas_avales c ORDER BY c.anio DESC,c.id DESC")->fetchAll();
+if($campanaId<=0&&$campanas){$activas=array_values(array_filter($campanas,static fn(array $c):bool=>$c['estado']==='activa'));$campanaId=(int)(($activas[0]??$campanas[0])['id']);}
+$campana=null;foreach($campanas as $item)if((int)$item['id']===$campanaId)$campana=$item;
+$campanaAbierta=$campana&&$campana['estado']==='activa';
+$sedes=$pdo->query('SELECT id,nombre FROM padron_sedes_avales WHERE activo=1 ORDER BY nombre')->fetchAll();
+$sedeFiltro=(int)($_POST['filtro_sede']??0);$estadoFiltro=(string)($_POST['filtro_estado']??'');$numeroFiltro=trim((string)($_POST['filtro_numero']??''));$folios=[];$siguienteNumero=1;
+if($campana){
+    $cond=['f.campana_id=:campana'];$params=['campana'=>$campanaId];if($sedeFiltro>0){$cond[]='f.sede_id=:sede';$params['sede']=$sedeFiltro;}if(in_array($estadoFiltro,['abierto','cerrado','observado','anulado'],true)){$cond[]='f.estado=:estado';$params['estado']=$estadoFiltro;}if($numeroFiltro!==''&&ctype_digit($numeroFiltro)){$cond[]='f.numero=:numero';$params['numero']=(int)$numeroFiltro;}
+    $stmt=$pdo->prepare("SELECT f.*,s.nombre sede,SUM(a.estado<>'anulado')total_avales FROM padron_folios_avales f LEFT JOIN padron_sedes_avales s ON s.id=f.sede_id LEFT JOIN padron_avales a ON a.folio_id=f.id WHERE ".implode(' AND ',$cond)." GROUP BY f.id,s.nombre ORDER BY f.numero DESC LIMIT 100");$stmt->execute($params);$folios=$stmt->fetchAll();
+    $stmt=$pdo->prepare('SELECT COALESCE(MAX(numero),0)+1 FROM padron_folios_avales WHERE campana_id=?');$stmt->execute([$campanaId]);$siguienteNumero=(int)$stmt->fetchColumn();
 }
-else
-{
-$num_filas = $mas + $num_filas;
-$LIMITE=" limit 0,$num_filas ";
-}	
-
-$variable_buscar = 		isset($_POST['variable_buscar']) ? $_POST['variable_buscar'] : NULL;
-$system_estado = 		isset($_POST['system_estado']) ? $_POST['system_estado'] : NULL;
-$system_id = 		isset($_POST['system_id']) ? $_POST['system_id'] : NULL;
-$respuesta = 'Avales digitales';
-$system_apellido = '';
-$system_nombre = '';
-$system_circuito = 	'';
-$system_sexo =	'';
-$system_domicilio =	'';
-$departamento='';
-$system_dpto = 	'';
-$system_localidad ='';
-$system_702_estado='';
-
-if ( $reset =='go' )
-{
-$_SESSION['where_control']="";
+$folio=null;$integrantes=[];
+if($folioId>0){
+    $stmt=$pdo->prepare('SELECT f.*,c.nombre campana,s.nombre sede FROM padron_folios_avales f INNER JOIN padron_campanas_avales c ON c.id=f.campana_id LEFT JOIN padron_sedes_avales s ON s.id=f.sede_id WHERE f.id=?');$stmt->execute([$folioId]);$folio=$stmt->fetch()?:null;
+    if($folio){$campanaId=(int)$folio['campana_id'];$stmt=$pdo->prepare("SELECT a.id,a.legacy_id,a.posicion,a.estado,p.dni,p.apellido,p.nombre,p.sexo,d.domicilio,t.circuito,t.localidad,dep.nombre departamento FROM padron_avales a INNER JOIN padron_personas p ON p.id=a.persona_id LEFT JOIN padron_domicilios d ON d.persona_id=p.id AND d.vigente_hasta IS NULL LEFT JOIN padron_territorios t ON t.id=d.territorio_id LEFT JOIN padron_departamentos dep ON dep.id=t.departamento_id WHERE a.folio_id=? ORDER BY a.estado='anulado',a.posicion,a.id");$stmt->execute([$folioId]);$integrantes=$stmt->fetchAll();}
 }
-
-
-$where="  WHERE system_701_estado IN ('0','1') ";	
-
-
-					
-if ($variable_buscar != "" or $system_estado != ''  or $system_id != '' )
-{		
-	$variable_buscar=formatear_dni(trim($variable_buscar));
-	if ( ctype_digit($variable_buscar) == true ) 
-	{		
-		
-		if (strlen($variable_buscar) >= '7' and strlen($variable_buscar) <= '8')
-		{
-			$row = $mysqli -> consulta_SQL("Select * from system_700_avalados where system_700_dni = '$variable_buscar' ");				
-			if($row == true)
-			{
-			 	$respuesta = '<span style="color: #336600;"><span class="dni">'.$variable_buscar.'</span> en FOLIO '.$row[0]['system_700_folio'].'</span>';
-			}
-			else
-			{
-				// system_2000_apellido system_2000_nombre @ system_2000_circuito @ system_2000_sexo @ system_2000_domicilio
-				//$dni = 	str_pad($variable_buscar, 8, "0", STR_PAD_LEFT); // 8 digitos si o si
-				$valu = explode('@', 			funcion_traer_datos_padron($variable_buscar,$mysqli));
-				$system_apellido = 				$valu['0'];
-				$system_nombre = 				$valu['1'];
-				$system_sexo =					'';
-
-				if ( $system_apellido != '' )
-				{
-					//donde_vive=  system_2002_domicilio  localidad_por_circuito	system_2002_circuito 
-					//$valu1 = explode('@', 	donde_vive($variable_buscar,$mysqli));
-					$system_domicilio = 	'';					
-					$system_circuito = 		'';
-					
-					// system_506_dpto   system_506_localidad 
-					//$valu2 = explode('@', 	funcion_traer_localidad_por_circuito($system_circuito,$mysqli));
-					$system_dpto = 			'';
-					$system_localidad = 	'';
-					$departamento = 		'';
-					
-
-					
-					if ( funcion_consulto_extras($variable_buscar,$mysqli) == '1' )
-					{
-					$respuesta = '<span style="color:#009966;"><span class="dni">'.$variable_buscar.'</span> AFILIADO NO AVALADO!</span>';
-					$system_702_estado='1';
-					}
-					else
-					{
-					$respuesta = '<span style="color:#000;"><span class="dni">'.$variable_buscar.'</span> No esta afiliado...</span>';
-					$system_702_estado='0';
-					}	
-				}
-				else
-				{
-				$respuesta = '<span style="color:red;"><span class="dni">'.$variable_buscar.'</span> No empadronado!</span>';
-				$system_702_estado='2';
-				}
-				
-				/*0=no afiliado; 
-				1=afiliado no evalado; 
-				2=no existe en padron general */	
-				$row2 = $mysqli -> consulta_SQL("Select * from system_702_no_afiliados where system_702_dni = '$variable_buscar' ");				
-				if(!$row2 == true)
-				{
-					$mysqli -> consulta_SQL("INSERT INTO system_702_no_afiliados  
-					( 							
-						id_system_702, 	
-						rela_system_03, 	
-						system_702_dni, 	
-						system_702_apellido, 	
-						system_702_nombre, 	
-						system_702_sexo, 	
-						system_702_domicilio, 	
-						system_702_dpto, 	
-						system_702_localidad, 	
-						system_702_estado 	  
-					) 
-					VALUES 
-					(
-						DEFAULT,
-						'$sesion_system_03',
-						'$variable_buscar',
-						'$system_apellido',
-						'$system_nombre',
-						'$system_sexo',
-						'$system_domicilio',
-						'$departamento',
-						'$system_localidad',
-						'$system_702_estado'
-					)");	
-				}
-
-				
-			
-			}	
-		}
-		else
-		{
-			$respuesta = '<span style="color:red;">No es un dni...</span>';
-		}
-			
-	} 
-	
-	
-	if ( $system_estado != '' )
-	{
-		if ( $system_estado == '2' )
-		{
-			$_SESSION['where_control']='';	
-		}
-		else
-		{
-			$where = " WHERE system_701_estado = '$system_estado' ";
-			$_SESSION['where_control']=$where;	
-		}
-		
-	}
-	
-	if ( $system_id != '' )
-	{
-		$where = " WHERE system_701_num = '$system_id' ";
-		$_SESSION['where_control']=$where;		
-	}
-	
+$consultaDni=trim((string)($_POST['consulta_dni']??''));$verificacion=null;
+if($consultaDni!==''){
+    $dniConsulta=avales_dni($consultaDni);
+    if(!$dniConsulta)$verificacion=['tipo'=>'danger','titulo'=>'DNI inválido','detalle'=>'Ingresá entre 6 y 8 dígitos.'];
+    else{
+        $stmt=$pdo->prepare("SELECT p.id,p.apellido,p.nombre,af.estado afiliacion_estado,EXISTS(SELECT 1 FROM padron_version_personas vp INNER JOIN padron_versiones v ON v.id=vp.version_id AND v.estado='activa' WHERE vp.persona_id=p.id)en_padron,(SELECT v.alcance FROM padron_versiones v WHERE v.estado='activa' ORDER BY v.id DESC LIMIT 1)alcance FROM padron_personas p LEFT JOIN padron_afiliaciones af ON af.persona_id=p.id WHERE p.dni=? LIMIT 1");$stmt->execute([$dniConsulta]);$vp=$stmt->fetch();
+        if(!$vp)$verificacion=['tipo'=>'secondary','titulo'=>'No registrado','detalle'=>"El DNI {$dniConsulta} no existe en la base de personas."];
+        elseif($vp['afiliacion_estado']!=='activa')$verificacion=['tipo'=>'warning','titulo'=>$vp['apellido'].' '.$vp['nombre'],'detalle'=>'No tiene afiliación activa al PJ.'];
+        else{$stmt=$pdo->prepare("SELECT c.nombre campana,f.numero,f.fecha FROM padron_avales a INNER JOIN padron_folios_avales f ON f.id=a.folio_id INNER JOIN padron_campanas_avales c ON c.id=a.campana_id WHERE a.persona_id=? AND a.estado<>'anulado' ORDER BY f.fecha DESC,a.id DESC LIMIT 1");$stmt->execute([(int)$vp['id']]);$ultimo=$stmt->fetch();$detalle=$ultimo?'Último aval: folio '.$ultimo['numero'].' · '.avales_fecha($ultimo['fecha']).' · '.$ultimo['campana']:'Afiliado sin avales registrados.';if(!(bool)$vp['en_padron'])$detalle.=$vp['alcance']==='provincial_completo'?' No integra el padrón electoral completo vigente.':' Estado electoral pendiente por carga parcial.';$verificacion=['tipo'=>'success','titulo'=>$vp['apellido'].' '.$vp['nombre'],'detalle'=>$detalle];}
+    }
 }
-else
-{	
-	if ( $where_control!='' )
-	{
-	$_SESSION['where_control']=$where_control;
-	}
-	else
-	{
-	$_SESSION['where_control']=$where;
-	}
-}
-//$t->set_var("VERIFICACION","$respuesta");
-$t->set_var("titulo_modulo",$respuesta);
-											
-$where_control=$_SESSION['where_control'];
-//echo $where_control;
-$total_afiliados = '0';
-$total_votos = '0';
-$total_disputa_totales = '0';
-$total_votos_totales = '0';
-$system_703_procedencia='';
-
-	$tSQL = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_701_folio  $where_control ");
-	if ($tSQL == TRUE)
-	{		
-		$total_filas = $tSQL[0]['total_filas'];
-	}
-	else
-	{
-		$total_filas = '0';
-	}	
-	
-	$row = $mysqli -> consulta_SQL("Select * from system_701_folio
-						$where_control
-						
-						ORDER BY id_system_701 DESC 
-						$LIMITE
-						");				
-	if($row == true)
-	{
-		for ( $i=0; $i < count($row); $i++)
-		{			
-			$id_system_701=				$row[$i]['id_system_701'];
-			$rela_system_03=			$row[$i]['rela_system_03'];
-			$rela_system_703=			$row[$i]['rela_system_703'];
-			$system_701_num= 			$row[$i]['system_701_num'];
-			$system_701_estado= 		$row[$i]['system_701_estado'];
-			$system_701_observaciones= 	$row[$i]['system_701_observaciones'];
-			$system_apellido_nombre = 	consulto_perfil($rela_system_03,$mysqli);					
-			$t->set_var("system_701_num",$system_701_num);
-			$t->set_var("system_apellido_nombre",$system_apellido_nombre);
-			$t->set_var("system_701_observaciones",$system_701_observaciones);
-			
-			$down = "<a href=\"modulos/afiliados/php/lista_planillas_ok_csv.php?rela_system_701=$id_system_701&system_701_num=$system_701_num\" target=\"news\"><img src=\"../image/iconos/page_excel.png\" border=\"0\"></a>&nbsp;&nbsp;";
-			$t->set_var("DOWN","$down");	
-		
-			$row2 = $mysqli -> consulta_SQL("Select COUNT(*) total_afiliados from system_700_avalados  where rela_system_701='$id_system_701'  ");
-			if($row2 == true)
-			{
-				$total_afiliados = $row2[0]['total_afiliados'];
-			}
-			
-			$row3 = $mysqli -> consulta_SQL("Select * from system_703_sede where id_system_703='$rela_system_703'  ");
-			if($row3 == true)
-			{
-				$system_703_procedencia = $row3[0]['system_703_procedencia'];	
-			}
-			$t->set_var("system_703_procedencia",$system_703_procedencia);
-			
-			$t->set_var("disputa",	'0');
-			$t->set_var("total",	$total_afiliados);
-
-			if ( optener_permisos('M',$id_system_01,$sesion_system_03,$mysqli) == '1')
-			{				
-				$url="'modulos/afiliados/php/lista_planilla.php'";
-				$id="'content_seccion'";
-				$vars="'id_system_01=$id_system_01&id_system_701=$id_system_701'";				
-				$t->set_var("funcion_entrar","cargar_post($url,$id,$vars)");	
-				
-				$t->set_var("funcion_entrar","cargar_post($url,$id,$vars)");
-			}
-			else
-			{
-				$t->set_var("funcion_entrar","sin_permisos()");
-			}
-			
-			if ( optener_permisos('B',$id_system_01,$sesion_system_03,$mysqli) == '1' and  $root_candado == 'on' )// solo root puedee eliminar
-			{
-				$url="'modulos/afiliados/php/_interfaz.php'";
-				$vars="'nombre_funcion=borrar_folio&";
-				$vars.="id_system_701=$id_system_701'";
-				$url_exito="'modulos/afiliados/php/home.php'";
-				$id="'content_seccion'";
-				$vars_exito="'id_system_01=$id_system_01'";
-				$atx="''";
-				$msg="'Estas a punto de eliminar este folio con todo su contenido!'";
-				$t->set_var("funcion_borrar","eliminar_mostrar($url,$vars,$url_exito,$id,$vars_exito,$msg,$atx);");	
-			}
-			else
-			{
-				$t->set_var("funcion_borrar","sin_permisos()");
-			}
-				
-		$t->parse("LISTADO","una_planilla",true);
-		}
-	} 
-	else 						
-	{	
-		$t->SET_VAR("LISTADO",'');
-	}							
-	
-	
-	//rela_system_03	
-	//rela_system_601	
-	//system_600_disputa 0=planilla, 1=repetido, 2=voto libre 	
-	//system_600_estado 0=ok , 1=voto, 2=rechaz	
-	
-
-	// buscador
-	$urlb="'modulos/afiliados/php/home.php'";
-	$idb="'content_seccion'";
-	$varsb="'id_system_01=$id_system_01&variable_buscar='+busqueda.variable_buscar.value";
-	$t->set_var("funcion_busqueda","cargar_post($urlb,$idb,$varsb)");
-	$t->set_var("funcion_busqueda_enter","pinchar_enter(event,$urlb,$idb,$varsb)");
-
-	// Funciuon de agregar
-	if (  optener_permisos('A',$id_system_01,$sesion_system_03,$mysqli) == '1' )
-	{
-		$url="'modulos/afiliados/php/home_am.php'";
-		$id="'content_n'";
-		$vars="'id_system_01=$id_system_01'";
-				
-		$t->set_var("funcion_agregar_planilla","cargar_post($url,$id,$vars)");
-	}
-	else
-	{
-		$t->set_var("funcion_agregar_planilla","sin_permisos()");
-	}
-
-
-
-	$tot = $mysqli -> consulta_SQL("Select COUNT(*) as total_afiliados from system_700_avalados ");
-	if ($tot == TRUE)
-	{		
-		$total_afiliados = $tot[0]['total_afiliados'];
-	}
-	$t->set_var("total_afiliados","$total_afiliados");	
-
-
-	$url="'modulos/afiliados/php/afiliados.php'";
-	$id="'content_seccion'";
-	$vars="'id_system_01=$id_system_01'";
-			
-	$t->set_var("funcion_ver_afiliados","cargar_post($url,$id,$vars)");
-
-
-$pagExc1='<a href="modulos/afiliados/php/lista_planillas_ok_csv.php" target="news" ><img src="../image/iconos/page_excel.png" border="0"></a>';	
-$t->set_var("EXCELES","$pagExc1");	
-
-
-// VERIFICAR DNI
-$urlb="'modulos/afiliados/php/home.php'";
-$idb="'content_seccion'";
-$varsb="'id_system_01=$id_system_01&variable_buscar='+busqueda.variable_buscar.value";
-
-$t->set_var("funcion_busqueda","cargar_post($urlb,$idb,$varsb)");
-$t->set_var("funcion_busqueda_enter","pinchar_enter(event,$urlb,$idb,$varsb)");
-
-
-	// buscador
-	$url3="'modulos/afiliados/php/home.php'";
-	$id3="'content_seccion'";
-	$vars3="'id_system_01=$id_system_01&system_estado='";
-	$t->set_var("funcion_selector_estado","cargar_post($url3,$id3,$vars3+this.value); ");	
-
-$url="'modulos/afiliados/php/home.php'";
-$id="'content_seccion'";
-$vars="'id_system_01=$id_system_01&mas=$num_filas'";	
-$PAGINAR = funcion_paginar_siguiente($total_filas,$num_filas,$url,$id,$vars);
-$t->set_var("PAGINAR","$PAGINAR");
-
-
-			
-$t->pparse("OUT", "ver");
+$urlHome='modulos/avales/php/home.php?id_system_01='.AVALES_MODULO_ID;
+function avales_submit(string $url):string{return "cargar_post('".avales_h($url)."','content_seccion',new URLSearchParams(new FormData(this)).toString());return false;";}
 ?>
+<style>
+.avales-app{--av-azul:#075a9c;color:#17324a}.av-hero{background:linear-gradient(125deg,#064f8a,#168dcc);color:#fff;border-radius:0 0 1.35rem 1.35rem}.av-card{border:0;border-radius:1rem;box-shadow:0 .45rem 1.25rem rgba(17,72,108,.09)}.av-stat{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);border-radius:.85rem}.av-folio{cursor:pointer;transition:.18s}.av-folio:hover{transform:translateY(-2px);box-shadow:0 .6rem 1.35rem rgba(17,72,108,.14)}.av-number{font-size:1.4rem;font-weight:750;color:var(--av-azul)}.av-dni{font-variant-numeric:tabular-nums;letter-spacing:.04em}.av-empty{border:2px dashed #c9dce8;border-radius:1rem}.av-progress{height:.55rem}.av-anulado{opacity:.5;text-decoration:line-through}
+</style>
+<?php if($folio&&$campanaAbierta&&$puedeAgregar&&in_array($folio['estado'],['borrador','abierto'],true)):?>
+<button class="btn btn-primary shadow position-fixed bottom-0 end-0 m-4" style="z-index:1040" data-bs-toggle="modal" data-bs-target="#cargaMultipleAvales"><i class="bi bi-people me-1"></i> Cargar lista</button>
+<div class="modal fade" id="cargaMultipleAvales" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow"><div class="modal-header"><h3 class="modal-title h5">Carga múltiple · Folio <?= (int)$folio['numero'] ?></h3><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form onsubmit="<?=avales_h(avales_submit($urlHome))?>"><div class="modal-body"><input type="hidden" name="csrf" value="<?=avales_h($csrf)?>"><input type="hidden" name="accion" value="agregar_lista"><input type="hidden" name="campana_id" value="<?=$campanaId?>"><input type="hidden" name="folio_id" value="<?=$folioId?>"><p class="small text-secondary">Pegá una lista separada por líneas, espacios o comas. Se omiten automáticamente no afiliados, repetidos y excedentes.</p><textarea class="form-control" name="lista_dni" rows="10" placeholder="31334256&#10;36016188" required></textarea></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary"><i class="bi bi-person-plus"></i> Procesar lista</button></div></form></div></div></div>
+<?php endif?>
+<section class="avales-app pb-5"><header class="av-hero px-3 px-lg-5 py-4 mb-4"><div class="container-fluid"><div class="row align-items-center g-3"><div class="col-lg-7"><div class="small text-uppercase opacity-75">Gestión partidaria</div><h2 class="h3 mb-1">Avales y folios</h2><div class="opacity-75">Campañas anuales, control de duplicados y hasta 15 personas por folio.</div></div><div class="col-lg-5"><form onsubmit="<?= avales_h(avales_submit($urlHome)) ?>"><input type="hidden" name="csrf" value="<?= avales_h($csrf) ?>"><input type="hidden" name="campana_id" value="<?= $campanaId ?>"><div class="input-group input-group-lg"><input class="form-control" name="consulta_dni" inputmode="numeric" placeholder="Verificar DNI" value="<?= avales_h($consultaDni) ?>"><button class="btn btn-light text-primary"><i class="bi bi-search"></i></button></div></form></div></div>
+<?php if($campana):?><div class="row g-2 mt-3"><div class="col-6 col-md-3"><div class="av-stat p-3"><div class="small opacity-75">Campaña</div><strong><?=avales_h($campana['nombre'])?></strong></div></div><div class="col-6 col-md-3"><div class="av-stat p-3"><div class="small opacity-75">Folios</div><strong class="fs-4"><?=number_format((int)$campana['total_folios'],0,',','.')?></strong></div></div><div class="col-6 col-md-3"><div class="av-stat p-3"><div class="small opacity-75">Avales</div><strong class="fs-4"><?=number_format((int)$campana['total_avales'],0,',','.')?></strong></div></div><div class="col-6 col-md-3"><div class="av-stat p-3"><div class="small opacity-75">Estado</div><strong><?=avales_h(ucfirst($campana['estado']))?></strong></div></div></div><?php endif?></div></header>
+<main class="container-fluid px-3 px-lg-5"><?php if($mensaje):?><div class="alert alert-<?=avales_h($tipoMensaje)?> av-card"><?=avales_h($mensaje)?></div><?php endif?><?php if($verificacion):?><div class="alert alert-<?=avales_h($verificacion['tipo'])?> av-card"><strong><?=avales_h($verificacion['titulo'])?></strong><div><?=avales_h($verificacion['detalle'])?></div></div><?php endif?>
+<div class="row g-4"><div class="col-xl-7"><div class="card av-card mb-4"><div class="card-body p-3 p-lg-4"><div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h3 class="h5 mb-0">Folios</h3><form onsubmit="<?=avales_h(avales_submit($urlHome))?>"><input type="hidden" name="csrf" value="<?=avales_h($csrf)?>"><select class="form-select" name="campana_id" onchange="this.form.requestSubmit()"><?php foreach($campanas as $c):?><option value="<?=(int)$c['id']?>" <?=(int)$c['id']===$campanaId?'selected':''?>><?=avales_h($c['anio'].' · '.$c['nombre'])?></option><?php endforeach?></select></form></div>
+<?php if($campana):?><form onsubmit="<?=avales_h(avales_submit($urlHome))?>" class="row g-2 mb-3"><input type="hidden" name="csrf" value="<?=avales_h($csrf)?>"><input type="hidden" name="campana_id" value="<?=$campanaId?>"><div class="col-md-4"><input class="form-control" name="filtro_numero" inputmode="numeric" placeholder="Número" value="<?=avales_h($numeroFiltro)?>"></div><div class="col-md-4"><select class="form-select" name="filtro_sede"><option value="0">Todas las sedes</option><?php foreach($sedes as $s):?><option value="<?=(int)$s['id']?>" <?=(int)$s['id']===$sedeFiltro?'selected':''?>><?=avales_h($s['nombre'])?></option><?php endforeach?></select></div><div class="col-md-3"><select class="form-select" name="filtro_estado"><option value="">Todos</option><?php foreach(['abierto','cerrado','observado','anulado'] as $e):?><option <?=$e===$estadoFiltro?'selected':''?>><?=$e?></option><?php endforeach?></select></div><div class="col-md-1 d-grid"><button class="btn btn-outline-primary"><i class="bi bi-funnel"></i></button></div></form><?php endif?>
+<div class="row g-3"><?php foreach($folios as $f):$ocupados=(int)$f['total_avales'];?><div class="col-md-6"><article class="av-folio border rounded-3 p-3 h-100" onclick="cargar_post('<?=avales_h($urlHome)?>','content_seccion','csrf=<?=avales_h($csrf)?>&campana_id=<?=$campanaId?>&folio_id=<?=(int)$f['id']?>')"><div class="d-flex justify-content-between"><div><div class="small text-secondary">Folio</div><div class="av-number">N.º <?=(int)$f['numero']?></div></div><span class="badge bg-<?=$f['estado']==='abierto'?'success':($f['estado']==='observado'?'warning text-dark':($f['estado']==='anulado'?'danger':'secondary'))?> align-self-start"><?=avales_h($f['estado'])?></span></div><div class="small mt-2"><i class="bi bi-geo-alt"></i> <?=avales_h($f['sede']?:'Sin sede')?> · <?=avales_h(avales_fecha($f['fecha']))?></div><div class="progress av-progress mt-3"><div class="progress-bar" style="width:<?=min(100,$ocupados/15*100)?>%"></div></div><div class="small text-secondary mt-1"><?=$ocupados?> de 15 personas</div></article></div><?php endforeach?><?php if(!$folios):?><div class="col-12"><div class="av-empty text-center text-secondary p-5">No hay folios para estos filtros.</div></div><?php endif?></div></div></div>
+<?php if($puedeAgregar):?><div class="card av-card"><div class="card-body p-3 p-lg-4"><h3 class="h5">Nuevo folio</h3><?php if($campana):?><form onsubmit="<?=avales_h(avales_submit($urlHome))?>" class="row g-3"><input type="hidden" name="csrf" value="<?=avales_h($csrf)?>"><input type="hidden" name="accion" value="crear_folio"><input type="hidden" name="campana_id" value="<?=$campanaId?>"><div class="col-sm-4"><label class="form-label">Número</label><input class="form-control" type="number" min="1" name="numero" value="<?=$siguienteNumero?>" required></div><div class="col-sm-4"><label class="form-label">Fecha</label><input class="form-control" type="date" name="fecha" value="<?=date('Y-m-d')?>" required></div><div class="col-sm-4"><label class="form-label">Sede</label><select class="form-select" name="sede_id"><option value="0">Sin sede</option><?php foreach($sedes as $s):?><option value="<?=(int)$s['id']?>"><?=avales_h($s['nombre'])?></option><?php endforeach?></select></div><div class="col-12"><textarea class="form-control" name="observaciones" rows="2" maxlength="2000" placeholder="Observaciones"></textarea></div><div class="col-12"><button class="btn btn-primary"><i class="bi bi-plus-lg"></i> Crear folio</button></div></form><?php else:?><p class="text-secondary">Primero creá una campaña.</p><?php endif?></div></div><?php endif?></div>
+<aside class="col-xl-5"><?php if($folio):$activos=count(array_filter($integrantes,static fn(array $i):bool=>$i['estado']!=='anulado'));?><div class="card av-card sticky-xl-top" style="top:1rem"><div class="card-body p-3 p-lg-4"><div class="d-flex justify-content-between"><div><div class="small text-secondary"><?=avales_h($folio['campana'])?></div><h3 class="h4">Folio N.º <?=(int)$folio['numero']?></h3><div class="small text-secondary"><?=avales_h($folio['sede']?:'Sin sede')?> · <?=avales_h(avales_fecha($folio['fecha']))?></div></div><span class="badge bg-secondary align-self-start"><?=avales_h($folio['estado'])?></span></div><hr>
+<?php if($puedeAgregar&&in_array($folio['estado'],['borrador','abierto'],true)&&$activos<15):?><form onsubmit="<?=avales_h(avales_submit($urlHome))?>" class="input-group mb-3"><input type="hidden" name="csrf" value="<?=avales_h($csrf)?>"><input type="hidden" name="accion" value="agregar_aval"><input type="hidden" name="campana_id" value="<?=$campanaId?>"><input type="hidden" name="folio_id" value="<?=$folioId?>"><input class="form-control" name="dni" inputmode="numeric" placeholder="DNI del afiliado" required autofocus><button class="btn btn-primary">Agregar</button></form><?php endif?><div class="d-flex justify-content-between small mb-1"><span>Ocupación</span><strong><?=$activos?>/15</strong></div><div class="progress av-progress mb-3"><div class="progress-bar" style="width:<?=min(100,$activos/15*100)?>%"></div></div>
+<div class="list-group list-group-flush"><?php foreach($integrantes as $i):?><div class="list-group-item px-0 <?=$i['estado']==='anulado'?'av-anulado':''?>"><div class="d-flex justify-content-between gap-2"><div><span class="badge bg-light text-dark me-2"><?=(int)$i['posicion']?></span><strong><?=avales_h($i['apellido'].' '.$i['nombre'])?></strong><div class="small text-secondary ms-5 av-dni">DNI <?=avales_h(ltrim($i['dni'],'0'))?><?php if($i['circuito']):?> · Circ. <?=avales_h($i['circuito'])?> · <?=avales_h($i['localidad'])?><?php endif?></div></div><?php if($puedeEliminar&&$i['estado']!=='anulado'&&$i['legacy_id']===null&&in_array($folio['estado'],['borrador','abierto'],true)):?><form onsubmit="if(!confirm('¿Retirar a esta persona?'))return false;<?=avales_h(avales_submit($urlHome))?>"><input type="hidden" name="csrf" value="<?=avales_h($csrf)?>"><input type="hidden" name="accion" value="anular_aval"><input type="hidden" name="campana_id" value="<?=$campanaId?>"><input type="hidden" name="folio_id" value="<?=$folioId?>"><input type="hidden" name="aval_id" value="<?=(int)$i['id']?>"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-lg"></i></button></form><?php endif?></div></div><?php endforeach?><?php if(!$integrantes):?><div class="text-center text-secondary py-4">El folio está vacío.</div><?php endif?></div><hr>
+<?php if($puedeDescargar):?><a class="btn btn-outline-success" target="_blank" href="modulos/avales/php/exportar.php?folio_id=<?=$folioId?>"><i class="bi bi-file-earmark-spreadsheet"></i> Descargar CSV</a><?php endif?>
+<?php if($puedeModificar):?><form onsubmit="<?=avales_h(avales_submit($urlHome))?>" class="mt-3"><input type="hidden" name="csrf" value="<?=avales_h($csrf)?>"><input type="hidden" name="accion" value="cambiar_folio"><input type="hidden" name="campana_id" value="<?=$campanaId?>"><input type="hidden" name="folio_id" value="<?=$folioId?>"><label class="form-label">Estado y observaciones</label><div class="input-group"><select class="form-select" name="estado"><?php foreach(['abierto','cerrado','observado','anulado'] as $e):?><option <?=$e===$folio['estado']?'selected':''?>><?=$e?></option><?php endforeach?></select><button class="btn btn-outline-primary">Guardar</button></div><textarea class="form-control mt-2" name="observaciones" rows="2" maxlength="2000"><?=avales_h($folio['observaciones'])?></textarea></form><?php endif?></div></div>
+<?php else:?><div class="card av-card"><div class="card-body text-center py-5"><i class="bi bi-journal-check fs-1 text-primary"></i><h3 class="h5 mt-3">Seleccioná un folio</h3><p class="text-secondary mb-0">Podrás consultar sus integrantes y administrarlo.</p></div></div><?php endif?>
+<?php if($puedeAgregar):?><div class="card av-card mt-4"><div class="card-body"><details><summary class="fw-bold">Crear nueva campaña anual</summary><form onsubmit="<?=avales_h(avales_submit($urlHome))?>" class="row g-2 mt-2"><input type="hidden" name="csrf" value="<?=avales_h($csrf)?>"><input type="hidden" name="accion" value="crear_campana"><div class="col-md-7"><input class="form-control" name="nombre" placeholder="Ej.: Avales 2027" required maxlength="160"></div><div class="col-md-3"><input class="form-control" type="number" name="anio" min="2000" max="2100" value="<?=date('Y')?>" required></div><div class="col-md-2 d-grid"><button class="btn btn-primary">Crear</button></div></form></details></div></div><?php endif?></aside></div></main></section>

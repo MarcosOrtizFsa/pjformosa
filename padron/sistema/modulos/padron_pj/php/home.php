@@ -1,138 +1,72 @@
 <?php
-session_start();
-include "../../../../lib/template.inc";
-include "../../../../lib/mysql_conect.php";
-include "../../../php/constructor_sql.php";
-include "../../../php/abm.php";
-include "../../../php/funciones.php";
+declare(strict_types=1);
+require_once __DIR__.'/padron_pj_bootstrap.php';
 
+$pdo=pj_pdo();$usuarioId=pj_usuario();$csrf=pj_csrf();$puedeAgregar=pj_permiso($pdo,'A');
+$valor=trim((string)($_POST['variable_buscar']??''));$dni=$valor!==''?PadronConsulta::normalizarDni($valor):null;$accion=(string)($_POST['accion']??'');$mensaje=null;$tipoMensaje='success';
 
-$t = new _template('../templates');
-$t->set_file(array(
-	'ver'		=> "home.html",
-	'un_padron'			=> "un_padron.html"
-	));
+try{
+    if($accion!=='')pj_validar_csrf();
+    if($accion==='iniciar_tramite'){
+        if(!$puedeAgregar)throw new RuntimeException('No tenés permiso para iniciar trámites.');
+        if(!$dni)throw new RuntimeException('Ingresá un DNI válido.');
+        $pdo->beginTransaction();
+        $stmt=$pdo->prepare('SELECT id FROM padron_personas WHERE dni=? LIMIT 1');$stmt->execute([$dni]);$personaId=(int)$stmt->fetchColumn();
+        $responsable=trim((string)($_SESSION['sesion_perfil']??''))?:('Usuario '.$usuarioId);
+        $stmt=$pdo->prepare("INSERT INTO padron_tramites_afiliacion(persona_id,dni,anio,responsable,estado,fecha,creado_por) VALUES(?,?,YEAR(CURDATE()),?,'pendiente',CURDATE(),?) ON DUPLICATE KEY UPDATE persona_id=COALESCE(VALUES(persona_id),persona_id),responsable=VALUES(responsable),estado=IF(estado='completado',estado,'pendiente'),actualizado_en=NOW()");$stmt->execute([$personaId?:null,$dni,$responsable,$usuarioId]);
+        if($personaId>0){$stmt=$pdo->prepare("INSERT INTO padron_afiliaciones(persona_id,estado,observaciones,fuente)VALUES(?,'pendiente','Trámite iniciado desde padrón PJ','padron_pj') ON DUPLICATE KEY UPDATE estado=IF(estado='activa',estado,'pendiente'),actualizado_en=NOW()");$stmt->execute([$personaId]);}
+        $pdo->commit();$mensaje='El trámite de afiliación quedó registrado.';
+    }
+    if($accion==='preseleccionar_aval'){
+        if(!$puedeAgregar)throw new RuntimeException('No tenés permiso para preparar avales.');
+        if(!$dni)throw new RuntimeException('Ingresá un DNI válido.');
+        $stmt=$pdo->prepare("SELECT p.id FROM padron_personas p INNER JOIN padron_afiliaciones af ON af.persona_id=p.id AND af.estado='activa' WHERE p.dni=? LIMIT 1");$stmt->execute([$dni]);$personaId=(int)$stmt->fetchColumn();if($personaId<=0)throw new RuntimeException('La persona no tiene una afiliación activa.');
+        $campanaId=(int)$pdo->query("SELECT id FROM padron_campanas_avales WHERE estado='activa' ORDER BY anio DESC,id DESC LIMIT 1")->fetchColumn();if($campanaId<=0)throw new RuntimeException('No hay una campaña de avales activa.');
+        $stmt=$pdo->prepare("SELECT f.numero FROM padron_avales a INNER JOIN padron_folios_avales f ON f.id=a.folio_id WHERE a.campana_id=? AND a.persona_id=? AND a.estado<>'anulado' LIMIT 1");$stmt->execute([$campanaId,$personaId]);if($stmt->fetchColumn()!==false)throw new RuntimeException('La persona ya integra un folio de la campaña activa.');
+        $responsable=trim((string)($_SESSION['sesion_perfil']??''))?:('Usuario '.$usuarioId);
+        $stmt=$pdo->prepare("INSERT INTO padron_candidatos_avales(campana_id,persona_id,responsable,estado,fecha,creado_por)VALUES(?,?,?,'preseleccionado',CURDATE(),?) ON DUPLICATE KEY UPDATE responsable=VALUES(responsable),estado=IF(estado='asignado',estado,'preseleccionado'),actualizado_en=NOW()");$stmt->execute([$campanaId,$personaId,$responsable,$usuarioId]);$mensaje='La persona quedó preparada para incorporar a un folio.';
+    }
+}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$mensaje=$e instanceof RuntimeException?$e->getMessage():'No se pudo completar la operación.';$tipoMensaje='danger';}
 
-
-$t->set_var("titulo_modulo","Consultar padr&oacute;n de afiliados al Partido Justicialista");
-$variable_buscar = 		isset($_POST['variable_buscar']) ? $_POST['variable_buscar'] : NULL;
-
-if ( $reset =='go' )
-{
-$_SESSION['where_control']="";
+$version=PadronConsulta::versionActiva($pdo);$campanaActiva=$pdo->query("SELECT id,nombre,anio FROM padron_campanas_avales WHERE estado='activa' ORDER BY anio DESC,id DESC LIMIT 1")->fetch();
+$totales=$pdo->query("SELECT (SELECT COUNT(*) FROM padron_afiliaciones WHERE estado='activa') afiliados,(SELECT COUNT(*) FROM padron_afiliaciones WHERE estado='pendiente') pendientes,(SELECT COUNT(*) FROM padron_tramites_afiliacion WHERE estado='pendiente') tramites,(SELECT COUNT(*) FROM padron_candidatos_avales WHERE estado='preseleccionado') candidatos")->fetch();
+$persona=null;$tramite=null;$avales=[];$candidato=null;$documentos=[];
+if($dni){
+    $stmt=$pdo->prepare("SELECT p.*,af.estado afiliacion_estado,af.fecha_afiliacion,af.numero_afiliado,af.observaciones afiliacion_observaciones,
+        d.domicilio,t.circuito,t.localidad,dep.nombre departamento,
+        vp.mesa,vp.orden,esc.nombre escuela,v.id version_id,v.alcance,e.nombre eleccion
+        FROM padron_personas p LEFT JOIN padron_afiliaciones af ON af.persona_id=p.id
+        LEFT JOIN padron_domicilios d ON d.persona_id=p.id AND d.vigente_hasta IS NULL
+        LEFT JOIN padron_territorios t ON t.id=d.territorio_id LEFT JOIN padron_departamentos dep ON dep.id=t.departamento_id
+        LEFT JOIN padron_version_personas vp ON vp.persona_id=p.id
+        LEFT JOIN padron_versiones v ON v.id=vp.version_id AND v.estado='activa'
+        LEFT JOIN padron_elecciones e ON e.id=v.eleccion_id LEFT JOIN padron_escuelas esc ON esc.id=vp.escuela_id
+        WHERE p.dni=? ORDER BY v.estado='activa' DESC LIMIT 1");$stmt->execute([$dni]);$persona=$stmt->fetch()?:null;
+    $stmt=$pdo->prepare('SELECT * FROM padron_tramites_afiliacion WHERE dni=? ORDER BY fecha DESC,id DESC LIMIT 1');$stmt->execute([$dni]);$tramite=$stmt->fetch()?:null;
+    if($persona){
+        $stmt=$pdo->prepare("SELECT a.estado,f.numero,f.fecha,f.estado folio_estado,c.nombre campana,c.anio FROM padron_avales a INNER JOIN padron_folios_avales f ON f.id=a.folio_id INNER JOIN padron_campanas_avales c ON c.id=a.campana_id WHERE a.persona_id=? ORDER BY f.fecha DESC,a.id DESC LIMIT 10");$stmt->execute([(int)$persona['id']]);$avales=$stmt->fetchAll();
+        if($campanaActiva){$stmt=$pdo->prepare('SELECT * FROM padron_candidatos_avales WHERE campana_id=? AND persona_id=? LIMIT 1');$stmt->execute([(int)$campanaActiva['id'],(int)$persona['id']]);$candidato=$stmt->fetch()?:null;}
+        $stmt=$pdo->prepare("SELECT id,tipo,nombre_original,creado_en FROM padron_documentos WHERE persona_id=? AND eliminado_en IS NULL ORDER BY creado_en DESC");$stmt->execute([(int)$persona['id']]);$documentos=$stmt->fetchAll();
+    }
 }
-					
-if ($variable_buscar != "")
-{		
-	$variable_buscar=formatear_dni(trim($variable_buscar));
-	if ( ctype_digit($variable_buscar) == true ) 
-	{		
-		
-		if (strlen($variable_buscar) >= '7' and strlen($variable_buscar) <= '8')
-		{
-			$row = $mysqli -> consulta_SQL("Select * from system_700_afiliados where system_700_dni = '$variable_buscar' ");				
-			if($row == true)
-			{
-			 	//$respuesta = '<div class="responder" style="color: #336600;"><span class="dni">'.$variable_buscar.'</span> en FOLIO '.$row[0]['system_700_folio'].'</div>';
-	
-				$respuesta = '<div class="responder" style="color: #0033CC; text-align:center;">';
-				$respuesta.= '<h1>DNI: <span class="dni">'.$row[0]['system_700_dni'].'</span></h1>';
-				$respuesta.= '<div >'.$row[0]['system_700_apellido'].', '.$row[0]['system_700_nombre'].'</div>';
-				$respuesta.= '<div >Domicilio: '.$row[0]['system_700_domicilio'].'</div>';
-				$respuesta.= '<div >'.$row[0]['system_700_localidad'].' - '.$row[0]['system_700_dpto'].'</div>';
-				$respuesta.= '<br><br>';
-				$respuesta.= '<div >Es afiliado al <br>PARTIDO JUSTICIALISTA</div>';
-				$respuesta.= '<br><br>';
-				//$respuesta.= '<button type="button" class="btn btn-primary btn-lg w-100">Solicitar afiliaci&oacute;n</button>';
-				$respuesta.= '</div>';
-			}
-			else
-			{
-				// system_2000_apellido system_2000_nombre @ system_2000_circuito @ system_2000_sexo @ system_2000_domicilio
-				//$dni = 	str_pad($variable_buscar, 8, "0", STR_PAD_LEFT); // 8 digitos si o si
-				$valu = explode('@', 			funcion_traer_datos_padron($variable_buscar,$mysqli));
-				$system_apellido_nombre = 		$valu['0'];
-				$system_circuito = 				$valu['1'];
-				//$system_sexo =					$valu['2'];
-
-				if ( $system_apellido_nombre != '' )
-				{
-					
-					$url="'modulos/afiliaciones/php/_interfaz.php'";
-					$vars="'nombre_funcion=iniciar_tramite&";
-					$vars.="system_2001_dni=$variable_buscar'";
-				
-					$url_exito="'modulos/afiliaciones/php/afiliar.php'";
-					$id="'content_seccion'";
-					$vars_exito="'id_system_01=$id_system_01&system_2001_dni=$variable_buscar'";
-					$funcion_agregar_afiliacion = " guardar_mostrar($url,$vars,$url_exito,$id,$vars_exito); ";
-					
-					$respuesta = '<div class="responder" style="color: #000; text-align:center;" >';
-					$respuesta.= '<h1>DNI: <span class="dni">'.$variable_buscar.'</span></h1>';
-					$respuesta.= '<div >'.$system_apellido_nombre.'</div>';
-					$respuesta.= '<br><br>';
-					$respuesta.= '<div ><strong>NO ES AFILIADO/A...</strong></div><br><br>';
-					$respuesta.= '<button type="button" onclick="'.$funcion_agregar_afiliacion.'" class="btn btn-primary btn-lg w-100 mb-3">Iniciar tr&aacute;mite</button>';
-					$respuesta.= '</div>';
-					
-				}
-				else
-				{
-					
-					$url="'modulos/afiliaciones/php/_interfaz.php'";
-					$vars="'nombre_funcion=iniciar_tramite&";
-					$vars.="system_2001_dni=$variable_buscar'";
-				
-					$url_exito="'modulos/afiliaciones/php/afiliar.php'";
-					$id="'content_seccion'";
-					$vars_exito="'id_system_01=$id_system_01&system_2001_dni=$variable_buscar'";
-					$funcion_agregar_afiliacion = " guardar_mostrar($url,$vars,$url_exito,$id,$vars_exito); ";
-					
-					$respuesta = '<div class="responder" style="color: #000; text-align:center;" >';
-					$respuesta.= '<h1>DNI: <span class="dni">'.$variable_buscar.'</span></h1>';
-					$respuesta.= '<div >'.$system_apellido_nombre.'</div>';
-					$respuesta.= '<br><br>';
-					$respuesta.= '<div ><strong>NO ES AFILIADO/A...</strong></div><br><br>';
-					//$respuesta.= '<button type="button" onclick="'.$funcion_agregar_afiliacion.'" class="btn btn-primary btn-lg w-100 mb-3">Iniciar tr&aacute;mite</button>';
-					$respuesta.= '</div>';
-
-				}
-
-			
-			}	
-		}
-		else
-		{
-			$respuesta = '<div class="responder" style="color:red;"><h2>No parece ser un DNI...</h2></div>';
-		}
-			
-	} 
-}
-else
-{	
-	$respuesta = '<div class="responder align-center"><h2>Haz una consulta con DNI</h2></div>';
-}
-
-									
-$t->set_var("RESULTADO",$respuesta);
-
-
-
-// VERIFICAR DNI
-$urlb="'modulos/afiliaciones/php/home.php'";
-$idb="'content_seccion'";
-$varsb="'id_system_01=$id_system_01&variable_buscar='+busqueda.variable_buscar.value";
-$t->set_var("funcion_busqueda","cargar_post($urlb,$idb,$varsb)");
-$t->set_var("funcion_busqueda_enter","pinchar_enter(event,$urlb,$idb,$varsb)");
-
-
-$url2="'modulos/afiliados/php/lista_pj.php'";
-$id2="'content_seccion'";
-$vars2="'id_system_01=$id_system_01'";
-$t->set_var("funcion_lista","cargar_post($url2,$id2,$vars2); ");	
-
-
-
-
-$t->pparse("OUT", "ver");
+$estaEnVersion=$persona&&!empty($persona['version_id']);$alcance=$version['alcance']??null;
+$estadoElectoral=$estaEnVersion?['success','En el padrón electoral','Identidad y domicilio verificados en la versión activa.']:($alcance==='provincial_completo'?['danger','Fuera del padrón vigente','No integra la versión provincial completa activa.']:['warning','Pendiente de verificación','La versión activa es parcial; la ausencia no permite declararlo inactivo.']);
+$urlHome='modulos/padron_pj/php/home.php?id_system_01='.PADRON_PJ_MODULO_ID;
+function pj_submit(string $url):string{return"cargar_post('".pj_h($url)."','content_seccion',new URLSearchParams(new FormData(this)).toString());return false;";}
 ?>
+<style>
+.pj-app{--pj-azul:#075a9c;color:#17324a}.pj-hero{background:linear-gradient(125deg,#064f8a,#1595d0);color:#fff;border-radius:0 0 1.35rem 1.35rem}.pj-card{border:0;border-radius:1rem;box-shadow:0 .45rem 1.3rem rgba(18,72,108,.09)}.pj-stat{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);border-radius:.85rem}.pj-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:#6a8192}.pj-value{font-weight:650}.pj-state{border-left:.3rem solid currentColor}.pj-dni{font-variant-numeric:tabular-nums;letter-spacing:.05em}.pj-empty{border:2px dashed #c7dce8;border-radius:1rem}
+</style>
+<section class="pj-app pb-5"><header class="pj-hero px-3 px-lg-5 py-4 mb-4"><div class="container-fluid"><div class="row align-items-center g-3"><div class="col-lg-6"><div class="small text-uppercase opacity-75">Consulta y verificación unificada</div><h2 class="h3 mb-1">Padrón de afiliados PJ</h2><div class="opacity-75"><?= $version?pj_h($version['eleccion_nombre'].' · '.$version['tipo'].' · alcance '.$version['alcance']):'Sin versión electoral activa' ?></div></div><div class="col-lg-6"><form onsubmit="<?=pj_h(pj_submit($urlHome))?>"><input type="hidden" name="csrf" value="<?=pj_h($csrf)?>"><div class="input-group input-group-lg"><input autofocus class="form-control pj-dni" name="variable_buscar" inputmode="numeric" maxlength="12" placeholder="Ingresá el DNI" value="<?=pj_h($valor)?>"><button class="btn btn-light text-primary px-4"><i class="bi bi-search me-1"></i> Consultar</button></div></form></div></div><div class="row g-2 mt-3"><div class="col-6 col-lg-3"><div class="pj-stat p-3"><div class="small opacity-75">Afiliados activos</div><strong class="fs-4"><?=number_format((int)$totales['afiliados'],0,',','.')?></strong></div></div><div class="col-6 col-lg-3"><div class="pj-stat p-3"><div class="small opacity-75">Afiliaciones pendientes</div><strong class="fs-4"><?=number_format((int)$totales['pendientes'],0,',','.')?></strong></div></div><div class="col-6 col-lg-3"><div class="pj-stat p-3"><div class="small opacity-75">Trámites en cola</div><strong class="fs-4"><?=number_format((int)$totales['tramites'],0,',','.')?></strong></div></div><div class="col-6 col-lg-3"><div class="pj-stat p-3"><div class="small opacity-75">Preparados para aval</div><strong class="fs-4"><?=number_format((int)$totales['candidatos'],0,',','.')?></strong></div></div></div></div></header>
+<main class="container-fluid px-3 px-lg-5"><?php if($mensaje):?><div class="alert alert-<?=pj_h($tipoMensaje)?> pj-card"><?=pj_h($mensaje)?></div><?php endif?>
+<?php if($valor==='' ):?><div class="card pj-card"><div class="card-body py-5 text-center"><i class="bi bi-person-vcard fs-1 text-primary"></i><h3 class="h5 mt-3">Una consulta, todos los estados</h3><p class="text-secondary mb-0">Electoral, afiliación, trámite, avales y documentos vinculados.</p></div></div>
+<?php elseif(!$dni):?><div class="alert alert-danger pj-card">Ingresá un DNI válido de entre 6 y 8 dígitos.</div>
+<?php elseif(!$persona):?><div class="row g-4"><div class="col-lg-8"><div class="card pj-card pj-state text-danger"><div class="card-body p-4"><div class="pj-label">Resultado</div><h3 class="h4 pj-dni">DNI <?=pj_h(ltrim($dni,'0'))?></h3><h4 class="h5">No existe una identidad vinculada</h4><p class="text-secondary mb-0"><?=$alcance==='provincial_completo'?'No está en el padrón electoral provincial vigente.':'La carga electoral es parcial; puede pertenecer a una zona todavía no cargada.'?></p></div></div></div><div class="col-lg-4"><?php if($tramite):?><div class="card pj-card"><div class="card-body"><div class="pj-label">Trámite existente</div><strong><?=pj_h(ucfirst($tramite['estado']))?></strong><div class="small text-secondary"><?=pj_h(pj_fecha($tramite['fecha']))?> · <?=pj_h($tramite['responsable'])?></div></div></div><?php elseif($puedeAgregar):?><form onsubmit="<?=pj_h(pj_submit($urlHome))?>" class="card pj-card"><div class="card-body"><input type="hidden" name="csrf" value="<?=pj_h($csrf)?>"><input type="hidden" name="accion" value="iniciar_tramite"><input type="hidden" name="variable_buscar" value="<?=pj_h($dni)?>"><h4 class="h6">Recepción manual</h4><p class="small text-secondary">Podés dejar el DNI pendiente hasta disponer de una identidad electoral.</p><button class="btn btn-outline-primary w-100">Registrar pendiente</button></div></form><?php endif?></div></div>
+<?php else:?><div class="row g-4"><div class="col-xl-8"><div class="card pj-card mb-4"><div class="card-body p-4"><div class="d-flex flex-wrap justify-content-between gap-3"><div><div class="pj-label">Persona</div><h3 class="h3 mb-1"><?=pj_h($persona['apellido'].' '.$persona['nombre'])?></h3><div class="pj-dni text-secondary">DNI <?=pj_h(ltrim($persona['dni'],'0'))?> · <?=pj_h($persona['tipo_documento']?:'Documento')?></div></div><span class="badge bg-<?=$persona['afiliacion_estado']==='activa'?'success':($persona['afiliacion_estado']==='pendiente'?'warning text-dark':'secondary')?> align-self-start fs-6"><?=$persona['afiliacion_estado']?pj_h('Afiliación '.$persona['afiliacion_estado']):'No afiliado'?></span></div><hr><div class="row g-3"><div class="col-md-4"><div class="pj-label">Domicilio</div><div class="pj-value"><?=pj_h($persona['domicilio']?:'No informado')?></div></div><div class="col-md-4"><div class="pj-label">Localidad y departamento</div><div class="pj-value"><?=pj_h(trim(($persona['localidad']?:'').' · '.($persona['departamento']?:''),' ·'))?:'No informado'?></div></div><div class="col-md-4"><div class="pj-label">Circuito</div><div class="pj-value"><?=pj_h($persona['circuito']?:'No informado')?></div></div></div></div></div>
+<div class="card pj-card"><div class="card-body p-4"><h3 class="h5">Situación completa</h3><div class="list-group list-group-flush"><div class="list-group-item px-0"><div class="d-flex gap-3"><i class="bi bi-check-circle-fill text-<?=$estadoElectoral[0]?> fs-4"></i><div><strong><?=pj_h($estadoElectoral[1])?></strong><div class="small text-secondary"><?=pj_h($estadoElectoral[2])?></div><?php if($estaEnVersion):?><div class="small mt-1"><?=pj_h($persona['escuela']?:'Sin escuela')?> · Mesa <?=pj_h($persona['mesa']?:'-')?> · Orden <?=pj_h($persona['orden']?:'-')?></div><?php endif?></div></div></div>
+<div class="list-group-item px-0"><div class="d-flex gap-3"><i class="bi bi-person-badge-fill text-<?=$persona['afiliacion_estado']==='activa'?'success':'warning'?> fs-4"></i><div><strong><?=$persona['afiliacion_estado']?pj_h('Afiliación '.$persona['afiliacion_estado']):'Sin afiliación registrada'?></strong><?php if($tramite):?><div class="small text-secondary">Trámite <?=pj_h($tramite['estado'])?> desde <?=pj_h(pj_fecha($tramite['fecha']))?> · <?=pj_h($tramite['responsable'])?></div><?php endif?></div></div></div>
+<div class="list-group-item px-0"><div class="d-flex gap-3"><i class="bi bi-journal-check text-primary fs-4"></i><div><strong><?=$avales?'Último aval: folio '.(int)$avales[0]['numero']:'Sin avales formalizados'?></strong><?php if($avales):?><div class="small text-secondary"><?=pj_h($avales[0]['campana'])?> · <?=pj_h(pj_fecha($avales[0]['fecha']))?></div><?php elseif($candidato):?><div class="small text-secondary">Preseleccionado el <?=pj_h(pj_fecha($candidato['fecha']))?> para <?=$campanaActiva?pj_h($campanaActiva['nombre']):'la campaña activa'?>.</div><?php endif?></div></div></div>
+<div class="list-group-item px-0"><div class="d-flex gap-3"><i class="bi bi-file-earmark-person text-info fs-4"></i><div><strong><?=count($documentos)?> documentos digitales</strong><div class="small text-secondary"><?=$documentos?pj_h(implode(', ',array_column($documentos,'tipo'))):'Todavía no hay archivos asociados.'?></div></div></div></div></div></div></div></div>
+<aside class="col-xl-4"><div class="card pj-card mb-4"><div class="card-body p-4"><h3 class="h5">Acciones disponibles</h3><?php if(!$persona['afiliacion_estado']&&$puedeAgregar):?><form onsubmit="<?=pj_h(pj_submit($urlHome))?>"><input type="hidden" name="csrf" value="<?=pj_h($csrf)?>"><input type="hidden" name="accion" value="iniciar_tramite"><input type="hidden" name="variable_buscar" value="<?=pj_h($dni)?>"><button class="btn btn-primary w-100 mb-2"><i class="bi bi-person-plus"></i> Iniciar afiliación</button></form><?php elseif($persona['afiliacion_estado']==='pendiente'):?><div class="alert alert-warning mb-2">La afiliación ya está en trámite.</div><?php elseif($persona['afiliacion_estado']==='activa'&&!$candidato&&(!$avales||!$campanaActiva||$avales[0]['anio']!=$campanaActiva['anio'])&&$puedeAgregar):?><form onsubmit="<?=pj_h(pj_submit($urlHome))?>"><input type="hidden" name="csrf" value="<?=pj_h($csrf)?>"><input type="hidden" name="accion" value="preseleccionar_aval"><input type="hidden" name="variable_buscar" value="<?=pj_h($dni)?>"><button class="btn btn-success w-100 mb-2"><i class="bi bi-check2-square"></i> Preparar para aval <?=$campanaActiva?(int)$campanaActiva['anio']:''?></button></form><?php elseif($candidato):?><div class="alert alert-info">Ya está preparado para la campaña activa.</div><?php endif?><a class="btn btn-outline-primary w-100" href="110/Avales"><i class="bi bi-journal-text"></i> Administrar folios</a></div></div>
+<?php if($avales):?><div class="card pj-card"><div class="card-body p-4"><h3 class="h5">Historial de avales</h3><?php foreach($avales as $a):?><div class="border-bottom py-2"><strong>Folio <?=(int)$a['numero']?> · <?=pj_h($a['campana'])?></strong><div class="small text-secondary"><?=pj_h(pj_fecha($a['fecha']))?> · <?=pj_h($a['estado'])?></div></div><?php endforeach?></div></div><?php endif?></aside></div><?php endif?>
+</main></section>
