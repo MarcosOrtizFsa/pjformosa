@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__.'/bootstrap.php';
+require_once dirname(__DIR__, 2).'/lib/PadronConsulta.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     header('Allow: GET');
@@ -10,42 +11,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
 
 api_autenticar('padron:consultar');
 
-$dniRecibido = preg_replace('/\D+/', '', (string) ($_GET['dni'] ?? ''));
-if (!preg_match('/^\d{7,8}$/', $dniRecibido)) {
-    api_responder(422, null, 'El DNI debe contener entre siete y ocho dígitos.', 'DNI_INVALIDO');
+$dni = PadronConsulta::normalizarDni((string) ($_GET['dni'] ?? ''));
+if ($dni === null) {
+    api_responder(422, null, 'El DNI debe contener entre seis y ocho dígitos.', 'DNI_INVALIDO');
 }
-$dni = str_pad($dniRecibido, 8, '0', STR_PAD_LEFT);
 
 /*
- * La consulta separa los datos estables de la persona, su domicilio vigente y
- * la asignación de la elección activa. Al cambiar de elección no se sobrescribe
- * la historia anterior.
+ * La consulta usa exclusivamente la fotografía activa. Una versión en carga
+ * nunca altera lo que ven las aplicaciones consumidoras.
  */
-$consulta = api_bd()->prepare(
-    "SELECT
-        p.id, p.dni, p.apellido, p.nombre, p.sexo, p.clase,
-        d.domicilio, d.localidad, d.circuito AS domicilio_circuito,
-        e.id AS eleccion_id, e.nombre AS eleccion_nombre, e.fecha AS eleccion_fecha,
-        ae.mesa, ae.orden, ae.circuito AS electoral_circuito,
-        esc.id AS escuela_id, esc.nombre AS escuela_nombre,
-        esc.domicilio AS escuela_domicilio, esc.localidad AS escuela_localidad
-     FROM padron_personas p
-     LEFT JOIN padron_domicilios d
-       ON d.id = (
-           SELECT d2.id FROM padron_domicilios d2
-           WHERE d2.persona_id = p.id AND d2.vigente_hasta IS NULL
-           ORDER BY d2.vigente_desde DESC, d2.id DESC LIMIT 1
-       )
-     LEFT JOIN padron_elecciones e ON e.estado = 'activa'
-     LEFT JOIN padron_asignaciones_electorales ae
-       ON ae.eleccion_id = e.id AND ae.persona_id = p.id
-     LEFT JOIN padron_escuelas esc ON esc.id = ae.escuela_id
-     WHERE p.dni = :dni AND p.estado = 1
-     ORDER BY e.fecha DESC
-     LIMIT 1"
-);
-$consulta->execute(['dni' => $dni]);
-$fila = $consulta->fetch();
+$fila = PadronConsulta::buscarPorDni(api_bd(), $dni);
 
 if (!$fila) {
     api_responder(404, null, 'No se encontró una persona con ese DNI.', 'PERSONA_NO_ENCONTRADA');
@@ -54,6 +29,7 @@ if (!$fila) {
 api_responder(200, [
     'persona' => [
         'dni' => $fila['dni'],
+        'tipo_documento' => $fila['tipo_documento'],
         'apellido' => $fila['apellido'],
         'nombre' => $fila['nombre'],
         'sexo' => $fila['sexo'],
@@ -62,13 +38,18 @@ api_responder(200, [
     'domicilio' => [
         'direccion' => $fila['domicilio'],
         'localidad' => $fila['localidad'],
-        'circuito' => $fila['domicilio_circuito'],
+        'circuito' => $fila['circuito'],
     ],
     'votacion' => $fila['eleccion_id'] !== null ? [
         'eleccion' => [
             'id' => (int) $fila['eleccion_id'],
             'nombre' => $fila['eleccion_nombre'],
             'fecha' => $fila['eleccion_fecha'],
+        ],
+        'version' => [
+            'id' => (int) $fila['version_id'],
+            'tipo' => $fila['version_tipo'],
+            'numero' => (int) $fila['version_numero'],
         ],
         'escuela' => $fila['escuela_id'] !== null ? [
             'id' => (int) $fila['escuela_id'],
@@ -78,6 +59,6 @@ api_responder(200, [
         ] : null,
         'mesa' => $fila['mesa'] !== null ? (int) $fila['mesa'] : null,
         'orden' => $fila['orden'] !== null ? (int) $fila['orden'] : null,
-        'circuito' => $fila['electoral_circuito'],
+        'nivel_completitud' => (int) $fila['nivel_completitud'],
     ] : null,
 ]);

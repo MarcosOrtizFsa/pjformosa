@@ -1,222 +1,108 @@
 <?php
+declare(strict_types=1);
+
 session_start();
-include "../../../../lib/template.inc";
-include "../../../../lib/mysql_conect.php";
-include "../../../php/constructor_sql.php";
-include "../../../php/abm.php";
-include "../../../php/funciones.php";
+require_once dirname(__DIR__, 4).'/lib/mysql_conect.php';
+require_once dirname(__DIR__, 4).'/lib/PadronConsulta.php';
 
+if (empty($_SESSION['sesion_system_03']) || empty($_SESSION['sesion_system_07'])) {
+    http_response_code(403);
+    echo '<div class="alert alert-danger m-4">La sesión venció. Ingresá nuevamente.</div>';
+    exit;
+}
 
-$t = new _template('../templates');
-$t->set_file(array(
-	'ver'		=> "home.html",
-	'un_padron'			=> "un_padron.html",
-	'select'		=> "una_opcion.html"
-	));
+$pdo = new PDO('mysql:host='.HOST.';dbname='.BD.';charset=utf8mb4', USU, CLA, [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES => false,
+]);
 
+$valorIngresado = trim((string) ($_POST['variable_buscar'] ?? ''));
+$dni = $valorIngresado !== '' ? PadronConsulta::normalizarDni($valorIngresado) : null;
+$version = PadronConsulta::versionActiva($pdo);
+$persona = ($dni !== null && $version !== null) ? PadronConsulta::buscarPorDni($pdo, $dni) : null;
+$busquedaRealizada = $valorIngresado !== '';
+$idModulo = (int) ($_GET['id_system_01'] ?? $_POST['id_system_01'] ?? 0);
 
-
-$variable_buscar = 	isset($_POST['variable_buscar']) ? $_POST['variable_buscar'] : NULL;
-$reset = 	isset($_POST['reset']) ? $_POST['reset'] : NULL;
-$mesa = 		'';
-$orden = 		'';
-$tipo_dni = 	'';
-$clase = 		'';
-if ( $reset =='go' )
+function h(?string $valor): string
 {
-	$_SESSION['where_control']="";
+    return htmlspecialchars((string) $valor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-if ( $variable_buscar =='' )
+function dato(?string $valor): string
 {
-	$_SESSION['where_control']="";
+    return trim((string) $valor) !== '' ? h($valor) : '<span class="text-secondary">No informado</span>';
 }
 
-$where="";	
-$LIMITE = " limit 0 ";
-if ( $variable_buscar !="" )
-{	
-	$variable_buscar=formatear_dni($variable_buscar);
-	
-	if (ctype_digit($variable_buscar)) 
-	{	
-		$digit_dni = substr("$variable_buscar", -1);
-		
-		if ($digit_dni == 1)
-		{
-		$where = "Select * from system_2000_padron_1  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		if ($digit_dni == 2)
-		{
-		$where = "Select * from system_2000_padron_2  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		if ($digit_dni == 3)
-		{
-		$where ="Select * from system_2000_padron_3  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		if ($digit_dni == 4)
-		{
-		$where = "Select * from system_2000_padron_4  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		if ($digit_dni == 5)
-		{
-		$where = "Select * from system_2000_padron_5  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		if ($digit_dni == 6)
-		{
-		$where = "Select * from system_2000_padron_6  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		if ($digit_dni == 7)
-		{
-		$where = "Select * from system_2000_padron_7  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		if ($digit_dni == 8)
-		{
-		$where = "Select * from system_2000_padron_8  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		if ($digit_dni == 9)
-		{
-		$where = "Select * from system_2000_padron_9  where system_2000_dni like '%$variable_buscar%' ";
-		}
-		else
-		{
-		$where = "Select * from system_2000_padron_0  where system_2000_dni = '$variable_buscar' ";
-		}
-	
-    } 
-	else 
-	{
-      $where.= "";
-    }	
-		
-	$_SESSION['where_control']=$where;
-	
-}
-else
-{	
-	if ( $where_control!='' )
-	{
-	$_SESSION['where_control']=$where_control;
-	}
-	else
-	{
-	$_SESSION['where_control']=$where;
-	}
-}							
-$where_control=$_SESSION['where_control'];
-//echo $where_control;
-
-
-	
-	$cadena = '';
-	$row = $mysqli -> consulta_SQL("$where_control ");				
-	if($row == true)
-	{					
-		$system_2000_dni = 		$row[0]['system_2000_dni'];
-		$system_2000_crto = 	$row[0]['system_2000_crto'];
-		$system_2000_domicilio = $row[0]['system_2000_domicilio'];
-		$system_2000_crto = 	$row[0]['system_2000_crto'];
-		$system_2000_mesa = 	$row[0]['system_2000_mesa'];
-		$system_2000_orden = 	$row[0]['system_2000_orden'];
-		
-		  	 	
-		
-		$dat = explode('@',mesa_escuela($system_2000_mesa,$mysqli));
-		$system_504_escuela = 		$dat[1];
-		$system_504_dpto = 			$dat[2];
-		$system_504_localidad = 	$dat[3];
-		
-
-		
-		$titulo_modulo = 'DNI: <span class="dni">'.$system_2000_dni.'</strong>';
-	
-		$cadena.= '<div class="tabl">';
-		$cadena.= '	<li class="fil-30 file-mov-100">';
-		$cadena.= '		<h5><span class="dni" >'.$system_2000_dni.'</span></h5>';
-		$cadena.= '		'.$row[0]['system_2000_apellido_nombre'];
-		$cadena.= '	</li>';		
-		$cadena.= '	<li class="fil-30 file-mov-100">';
-		$cadena.= '		'.$row[0]['system_2000_domicilio'];
-		$cadena.= '		<div class="minitex">'.localidad_por_circuito($system_2000_crto,$mysqli).' - Crto.: '.$system_2000_crto.'</div>';
-		$cadena.= '	</li>';
-		$cadena.= '	<li class="fil-40 file-mov-100">';
-		$cadena.= '		Mesa: '.$system_2000_mesa.' - Orden: '.$system_2000_orden.' - Esc: '.$system_504_escuela.'';
-		$cadena.= '		<div class="minitex">'.$system_504_localidad.'</div>';
-		$cadena.= '	</li>';	
-		$cadena.= '</div>';	
-	} 
-	else 						
-	{
-		$titulo_modulo = "Consultar Padr&oacute;n General";	
-		if ( $variable_buscar !="" )
-		{
-			$cadena.= '<div class="tabl">';
-			$cadena.= '	<li class="fil-100 file-mov-100 align-center">';
-			$cadena.= '		<br><br><br>';
-			$cadena.= '		<h5>No se encontro resultados...</h5>';
-			$cadena.= '		<br><br><br>';
-			$cadena.= '	</li>';		
-			$cadena.= '</div>';		
-		
-		}
-		else
-		{
-			$cadena.= '<div class="tabl">';
-			$cadena.= '	<li class="fil-100 file-mov-100 align-center">';
-			$cadena.= '		<br><br><br>';
-			$cadena.= '		<h5>Haga una b&uacute;squeda con el DNI</h5>';
-			$cadena.= '		<br><br><br>';
-			$cadena.= '	</li>';		
-			$cadena.= '</div>';		
-		}
-
-	
-	}	
-	
-	$t->set_var("PERFIL_PADRON",$cadena);	
-	$t->set_var("titulo_modulo",$titulo_modulo);
-
-	
-
-	// buscador
-	$urlb="'modulos/padron/php/home.php'";
-	$idb="'content_seccion'";
-	$varsb="'reset=go&variable_buscar='+busqueda.variable_buscar.value";
-	$t->set_var("funcion_busqueda","cargar_post($urlb,$idb,$varsb)");
-	$t->set_var("funcion_busqueda_enter","pinchar_enter(event,$urlb,$idb,$varsb)");
-
-
-	if (  optener_permisos('A',$id_system_01,$sesion_system_03,$mysqli) == '1' and  $root_candado == 'on' )
-	{
-
-		
-		
-		
-		$url="'modulos/padron/php/cargador.php'";	
-		$comando_camara = "abrir_popup($url)";
-		$opciones_menu = '<button type="button" class="btn btn-success btn-sm" style="font-size:12px;  margin:0px; padding:4px 10px 4px 10px;" onclick="'.$comando_camara.'">ACTUALIZAR</button>';
-		$t->set_var("opciones_menu",$opciones_menu);
-
-						
-	}
-	else
-	{
-		$t->set_var("funcion_cargar_archivo","");
-		$t->set_var("totales","");
-	}
-	
-
-
-
-
-
-$t->pparse("OUT", "ver");
+$urlConsulta = "'modulos/padron/php/home.php?id_system_01={$idModulo}'";
 ?>
+<style>
+    .padron-consulta { --padron-azul:#075a9c; --padron-celeste:#eaf6ff; }
+    .padron-hero { background:linear-gradient(120deg,#075a9c,#1593cf); color:#fff; border-radius:0 0 1.25rem 1.25rem; }
+    .padron-card { border:0; border-radius:1rem; box-shadow:0 .5rem 1.4rem rgba(20,70,105,.09); }
+    .padron-label { color:#668094; font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.15rem; }
+    .padron-value { font-weight:600; color:#17324a; }
+    .nivel-1 { background:#d1e7dd; color:#0f5132; }.nivel-2 { background:#fff3cd; color:#664d03; }.nivel-3 { background:#e2e3e5; color:#41464b; }
+</style>
+
+<section class="padron-consulta pb-5">
+    <div class="padron-hero px-3 px-lg-5 py-4 mb-4">
+        <div class="container-fluid">
+            <div class="row align-items-center g-3">
+                <div class="col-lg-6">
+                    <div class="small text-uppercase opacity-75">Consulta interna</div>
+                    <h2 class="h3 mb-1">Padrón electoral</h2>
+                    <?php if ($version): ?>
+                        <div class="small opacity-75"><?= h($version['eleccion_nombre']) ?> · <?= h(ucfirst($version['tipo'])) ?> #<?= (int) $version['numero'] ?> · <?= number_format((int) $version['total_personas'], 0, ',', '.') ?> personas</div>
+                    <?php else: ?>
+                        <div class="small opacity-75">No existe una versión activa.</div>
+                    <?php endif; ?>
+                </div>
+                <div class="col-lg-6">
+                    <form class="input-group input-group-lg" onsubmit="cargar_post(<?= $urlConsulta ?>,'content_seccion','variable_buscar='+encodeURIComponent(this.variable_buscar.value));return false;">
+                        <input autofocus class="form-control" name="variable_buscar" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="Ingresá el DNI" value="<?= h($valorIngresado) ?>" aria-label="DNI">
+                        <button class="btn btn-light text-primary px-4" type="submit" <?= !$version ? 'disabled' : '' ?>><i class="bi bi-search me-1"></i> Buscar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-3 px-lg-5">
+        <?php if (!$version): ?>
+            <div class="alert alert-warning padron-card">Primero debés completar y activar una versión desde <strong>Actualizar</strong>.</div>
+        <?php elseif (!$busquedaRealizada): ?>
+            <div class="card padron-card"><div class="card-body text-center py-5"><i class="bi bi-person-vcard fs-1 text-primary"></i><h3 class="h5 mt-3">Consultá por número de documento</h3><p class="text-secondary mb-0">Podés escribirlo con o sin puntos.</p></div></div>
+        <?php elseif ($dni === null): ?>
+            <div class="alert alert-danger padron-card">Ingresá un DNI válido de entre 6 y 8 dígitos.</div>
+        <?php elseif (!$persona): ?>
+            <div class="card padron-card"><div class="card-body text-center py-5"><i class="bi bi-person-x fs-1 text-secondary"></i><h3 class="h5 mt-3">DNI <?= h($dni) ?> no encontrado</h3><p class="text-secondary mb-0">La persona no integra la versión activa del padrón.</p></div></div>
+        <?php else: ?>
+            <?php $nivel = (int) $persona['nivel_completitud']; ?>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div><div class="text-secondary small">Resultado para DNI <?= h($persona['dni']) ?></div><h3 class="h4 mb-0"><?= h($persona['apellido'].', '.$persona['nombre']) ?></h3></div>
+                <span class="badge rounded-pill nivel-<?= $nivel ?> px-3 py-2">Nivel de completitud <?= $nivel ?></span>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-4"><div class="card padron-card h-100"><div class="card-body p-4"><h4 class="h6 text-primary mb-3"><i class="bi bi-person me-2"></i>Datos personales</h4>
+                    <div class="row g-3"><div class="col-6"><div class="padron-label">Tipo</div><div class="padron-value"><?= dato($persona['tipo_documento']) ?></div></div><div class="col-6"><div class="padron-label">DNI</div><div class="padron-value"><?= h($persona['dni']) ?></div></div><div class="col-6"><div class="padron-label">Clase</div><div class="padron-value"><?= dato($persona['clase'] !== null ? (string) $persona['clase'] : null) ?></div></div><div class="col-6"><div class="padron-label">Sexo</div><div class="padron-value"><?= dato($persona['sexo']) ?></div></div></div>
+                </div></div></div>
+                <div class="col-lg-4"><div class="card padron-card h-100"><div class="card-body p-4"><h4 class="h6 text-primary mb-3"><i class="bi bi-geo-alt me-2"></i>Residencia</h4>
+                    <div class="mb-3"><div class="padron-label">Domicilio</div><div class="padron-value"><?= dato($persona['domicilio']) ?></div></div><div class="row g-3"><div class="col-7"><div class="padron-label">Localidad</div><div class="padron-value"><?= dato($persona['localidad']) ?></div></div><div class="col-5"><div class="padron-label">Circuito</div><div class="padron-value"><?= dato($persona['circuito']) ?></div></div></div>
+                </div></div></div>
+                <div class="col-lg-4"><div class="card padron-card h-100"><div class="card-body p-4"><h4 class="h6 text-primary mb-3"><i class="bi bi-building me-2"></i>Lugar de votación</h4>
+                    <div class="mb-3"><div class="padron-label">Escuela</div><div class="padron-value"><?= dato($persona['escuela_nombre']) ?></div></div><div class="row g-3"><div class="col-6"><div class="padron-label">Mesa</div><div class="padron-value fs-5"><?= dato($persona['mesa'] !== null ? (string) $persona['mesa'] : null) ?></div></div><div class="col-6"><div class="padron-label">Orden</div><div class="padron-value fs-5"><?= dato($persona['orden'] !== null ? (string) $persona['orden'] : null) ?></div></div></div>
+                </div></div></div>
+            </div>
+        <?php endif; ?>
+
+        <?php
+        // Se mantiene el acceso al importador dentro del módulo, sólo para root/técnicos.
+        $modo = (string) ($_SESSION['sesion_system_03_modo'] ?? '');
+        $privilegio = (string) ($_SESSION['sesion_system_07'] ?? '');
+        if ($privilegio === '1' || in_array($modo, ['0', '1'], true)):
+        ?>
+            <div class="text-end mt-4"><button class="btn btn-outline-primary" onclick="abrir_popup_g('modulos/padron/php/cargador.php')"><i class="bi bi-cloud-arrow-up me-1"></i> Actualizar padrón</button></div>
+        <?php endif; ?>
+    </div>
+</section>

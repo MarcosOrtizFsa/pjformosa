@@ -1,139 +1,47 @@
 <?php
-include "../../../../lib/template.inc";
-include "../../../../lib/mysql_conect.php";
-include "../../../php/constructor_sql.php";
-include "../../../php/abm.php";
-include "../../../php/funciones.php";
-
-$t = new _template('../templates');
-//Archivos comunes
-$t->set_file(array(
-	'ver'			=> "cargador.html"
-	));
-
-$t->set_var("dir_base",$system_08_dominio."/".$modo_login."/");
-
-
-	$cadena='';	
-	$row = $mysqli -> consulta_SQL("Select * from system_09_archivero where system_09_album = 'PADRON' order by id_system_09 DESC LIMIT 10");				
-	if($row == true)
-	{
-		for ( $i=0; $i < count($row); $i++)
-		{			
-			$id_system_09 = 			$row[$i]['id_system_09'];
-			$system_09_tipo =			$row[$i]['system_09_tipo'];
-			$system_09_archivo =		$row[$i]['system_09_archivo'];
-			
-			$url="'modulos/padron/php/_interfaz.php'";
-			$vars="'nombre_funcion=quitar_extraible&id_system_09=$id_system_09'";
-			$msg="'Quitar este este extraible?'";
-			$funcion_quitar = "eliminar_refrescar($url,$vars,$msg);";
-	
-			$cadena.='	<tr>';	
-			$cadena.='    	<td><button class="btn btn-outline-secondary" type="button" id="button-addon2" onclick=" funcion_extraer_csv(0,'.$id_system_09.',0); ">'.$row[$i]['system_09_epigrafe'].'</button><i  onclick="'.$funcion_quitar.'" class="mi mi-trash-fill"></i></td>';	
-			$cadena.='	</tr>';			
-		}
-	}	
-	$t->set_var("optengo_archivo",				$cadena);
-	$t->set_var("total_del_padron_perfiles",	total_del_padron($mysqli));
-	
-
-	$url="'modulos/padron/php/_interfaz.php'";
-	$vars="'nombre_funcion=limpiar_sufragios'";
-	$msg="'Limpiar DNI, mesa y orden de la BD?'";
-	$funcion_seterear_sufragios = "eliminar_refrescar($url,$vars,$msg);";
-	
-	$t->set_var("reset_padron",		'<i onclick="" class="mi mi-trash-fill"></i>');
-	$t->set_var("reset_sufrafios",	'<i onclick="'.$funcion_seterear_sufragios.'" class="mi mi-trash-fill"></i>');
-
-
-		
-	
-
-	//$t->set_var("totales",total_del_padron($mysqli));
-		
-	$system_09_tipo = "0"; // 0=datos personales 1=donde vota 	
-	$url_exito="modulos/padron/php/home.php";
-	$id="content_seccion";
-	$vars="system_09_tipo=$system_09_tipo&system_09_album=PADRON";
-	$t->set_var("funcion_cargar_archivo",' down_files_padron(\''.$vars.'\'); ');
-	
-	
-	//$t->set_var("ejecutor_down"," ejecutar_descarga_progreso('0'); ");
-function total_del_padron($mysqli)
-{
-	$total_0 = 0;
-	$total_1 = 0;
-	$total_2 = 0;
-	$total_3 = 0;
-	$total_4 = 0;
-	$total_5 = 0;
-	$total_6 = 0;
-	$total_7 = 0;
-	$total_8 = 0;
-	$total_9 = 0;
-
-	
-	$row0 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_0 ");
-	if ($row0 == TRUE)
-	{		
-		$total_0 = $row0[0]['total_filas'];
-	}
-	$row1 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_1 ");
-	if ($row1 == TRUE)
-	{		
-		$total_1 = $row1[0]['total_filas'];
-	}
-	$row2 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_2 ");
-	if ($row2 == TRUE)
-	{		
-		$total_2 = $row1[0]['total_filas'];
-	}
-	$row3 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_3 ");
-	if ($row3 == TRUE)
-	{		
-		$total_3 = $row3[0]['total_filas'];
-	}
-
-	$row4 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_4 ");
-	if ($row4 == TRUE)
-	{		
-		$total_4 = $row4[0]['total_filas'];
-	}
-	$row5 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_5 ");
-	if ($row5 == TRUE)
-	{		
-		$total_5 = $row5[0]['total_filas'];
-	}
-	$row6 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_6 ");
-	if ($row6 == TRUE)
-	{		
-		$total_6 = $row6[0]['total_filas'];
-	}
-	
-	$row7 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_7 ");
-	if ($row7 == TRUE)
-	{		
-		$total_7 = $row7[0]['total_filas'];
-	}
-	$row8 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_8 ");
-	if ($row8 == TRUE)
-	{		
-		$total_8 = $row8[0]['total_filas'];
-	}
-	$row9 = $mysqli -> consulta_SQL("Select COUNT(*) as total_filas from system_2000_padron_9 ");
-	if ($row9 == TRUE)
-	{		
-		$total_9 = $row9[0]['total_filas'];
-	}
-		
-	$total_padron = $total_0 + $total_1 + $total_2 + $total_3 + $total_4 + $total_5 + $total_6 + $total_7 + $total_8 + $total_9;
-	return $total_padron;
-	
-}
-
-
-
-						
-$t->pparse("OUT", "ver");
+declare(strict_types=1);
+require_once __DIR__.'/importador_bootstrap.php';
+importador_exigir_acceso(false);
+$pdo = importador_pdo();
+$recientes = $pdo->query("SELECT i.id,i.archivo_original,i.estado,i.total_filas,e.nombre AS eleccion FROM padron_importaciones i INNER JOIN padron_elecciones e ON e.id=i.eleccion_id ORDER BY i.id DESC LIMIT 10")->fetchAll();
+$elecciones = $pdo->query("SELECT id,nombre,fecha FROM padron_elecciones ORDER BY fecha DESC,id DESC")->fetchAll();
+$csrf = importador_csrf();
 ?>
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Importador del padrón</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>:root{--azul:#075a9c}body{background:linear-gradient(145deg,#f5fbff,#e8f3fa);min-height:100vh;color:#17324a}.cabecera{background:linear-gradient(120deg,#064f8a,#168ccc);color:#fff}.paso{border:0;border-radius:1rem;box-shadow:0 .5rem 1.5rem rgba(15,75,115,.09)}.numero{width:2rem;height:2rem;border-radius:50%;display:inline-grid;place-items:center;background:#eaf6ff;color:var(--azul);font-weight:700}.progress{height:1rem}code{color:var(--azul)}</style>
+</head><body>
+<header class="cabecera py-4 mb-4"><div class="container-fluid px-lg-5 d-flex justify-content-between align-items-center"><div><div class="small text-uppercase opacity-75">Administración electoral</div><h1 class="h3 mb-0">Importador del padrón</h1></div><button class="btn btn-light btn-sm" onclick="window.close()">Cerrar</button></div></header>
+<main class="container-fluid px-lg-5 pb-5"><div id="alerta"></div><div class="row g-4"><section class="col-xl-8">
+<div class="card paso mb-4"><div class="card-body p-4"><h2 class="h5"><span class="numero me-2">1</span>Archivo y elección</h2><p class="text-secondary">CSV UTF-8 separado por punto y coma. Se valida antes de modificar el padrón.</p>
+<form id="formSubida" class="row g-3"><input type="hidden" name="accion" value="subir"><input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf) ?>">
+<div class="col-md-7"><label class="form-label">Proceso electoral</label><select class="form-select" name="eleccion_id" id="eleccionId"><option value="0">Crear una elección nueva</option><?php foreach($elecciones as $eleccion): ?><option value="<?= (int)$eleccion['id'] ?>"><?= htmlspecialchars($eleccion['nombre'].' · '.$eleccion['fecha']) ?></option><?php endforeach; ?></select></div>
+<div class="col-md-5"><label class="form-label">Versión recibida</label><select class="form-select" name="version_tipo" required><option value="anual">Padrón anual</option><option value="provisorio">Padrón provisorio</option><option value="definitivo">Padrón definitivo</option></select></div>
+<div class="col-md-5"><label class="form-label">Alcance del archivo</label><select class="form-select" name="alcance" required><option value="parcial">Parcial</option><option value="provincial_completo">Provincial completo</option><option value="prueba">Prueba técnica</option></select><div class="form-text">Solo una carga provincial completa permite determinar ausencias.</div></div>
+<div id="nuevaEleccion" class="row g-3 m-0 p-0"><div class="col-md-7"><label class="form-label">Nombre de la elección nueva</label><input class="form-control" name="eleccion_nombre" id="eleccionNombre" placeholder="Elecciones provinciales 2027" maxlength="160" required></div><div class="col-md-5"><label class="form-label">Fecha</label><input class="form-control" type="date" name="eleccion_fecha" id="eleccionFecha" required></div><div class="col-12"><label class="form-label">Tipo de elección</label><input class="form-control" name="eleccion_tipo" placeholder="Provincial / Nacional" maxlength="60"></div></div>
+<div class="col-12"><label class="form-label">Archivo CSV</label><input class="form-control" type="file" name="archivo" accept=".csv,text/csv" required></div>
+<div class="col-12 d-flex gap-2"><button class="btn btn-primary" id="btnSubir">Subir y validar</button><a class="btn btn-outline-primary" href="../templates/modelo_importacion.csv" download>Descargar modelo</a></div></form></div></div>
+<div class="card paso"><div class="card-body p-4"><h2 class="h5"><span class="numero me-2">2</span>Control y aplicación</h2><div id="sinImportacion" class="text-secondary">Seleccioná una importación reciente o subí un archivo.</div>
+<div id="detalle" class="d-none"><div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><div><strong id="titulo"></strong><div id="archivo" class="small text-secondary"></div></div><span id="estado" class="badge bg-secondary align-self-start"></span></div>
+<div class="progress mb-2"><div id="barra" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div><div id="mensaje" class="small text-secondary mb-3"></div>
+<div class="row g-2 text-center mb-3"><div class="col-6 col-md"><div class="p-2 bg-light rounded"><strong id="total">0</strong><div class="small">Procesadas</div></div></div><div class="col-6 col-md"><div class="p-2 bg-success-subtle rounded"><strong id="validas">0</strong><div class="small">Válidas</div></div></div><div class="col-6 col-md"><div class="p-2 bg-danger-subtle rounded"><strong id="rechazadas">0</strong><div class="small">Rechazadas</div></div></div><div class="col-6 col-md"><div class="p-2 bg-primary-subtle rounded"><strong id="importadas">0</strong><div class="small">Importadas</div></div></div></div>
+<div class="row g-2 mb-3"><div class="col-md-4"><div class="border rounded p-2"><strong>Nivel 1: <span id="nivel1">0</span></strong><div class="small text-secondary">Información completa</div></div></div><div class="col-md-4"><div class="border rounded p-2"><strong>Nivel 2: <span id="nivel2">0</span></strong><div class="small text-secondary">Información parcial</div></div></div><div class="col-md-4"><div class="border rounded p-2"><strong>Nivel 3: <span id="nivel3">0</span></strong><div class="small text-secondary">DNI, apellido y nombres</div></div></div></div>
+<div id="acciones" class="d-flex flex-wrap gap-2 mb-3"></div><div id="errores"></div></div></div></div></section>
+<aside class="col-xl-4"><div class="card paso mb-4"><div class="card-body p-4"><h2 class="h5">Columnas requeridas</h2><code class="small text-break">dni;tipo_dni;apellido;nombres;clase;sexo;domicilio;localidad;circuito;escuela;mesa;orden</code><hr><p class="small text-secondary mb-0">Localidad y departamento oficiales se relacionan automáticamente mediante el circuito.</p></div></div>
+<div class="card paso"><div class="card-body p-4"><h2 class="h5">Importaciones recientes</h2><div class="list-group list-group-flush">
+<?php foreach($recientes as $item): ?><button class="list-group-item list-group-item-action px-0" onclick="cargarEstado(<?= (int)$item['id'] ?>)"><div class="d-flex justify-content-between"><strong><?= htmlspecialchars($item['eleccion']) ?></strong><span class="badge text-bg-light"><?= htmlspecialchars($item['estado']) ?></span></div><div class="small text-secondary text-truncate"><?= htmlspecialchars($item['archivo_original']) ?> · <?= number_format((int)$item['total_filas'],0,',','.') ?> filas</div></button><?php endforeach; ?>
+<?php if(!$recientes): ?><div class="small text-secondary">Todavía no hay importaciones.</div><?php endif; ?></div></div></div></aside></div></main>
+<script>
+const API='importador_api.php',CSRF=<?= json_encode($csrf) ?>;let actual=null,trabajando=false;
+document.getElementById('eleccionId').addEventListener('change',e=>{const nueva=e.target.value==='0';document.getElementById('nuevaEleccion').classList.toggle('d-none',!nueva);document.getElementById('eleccionNombre').required=nueva;document.getElementById('eleccionFecha').required=nueva});
+document.getElementById('formSubida').addEventListener('submit',async e=>{e.preventDefault();if(trabajando)return;trabajando=true;bloquear(true);try{const d=await leer(await fetch(API,{method:'POST',body:new FormData(e.currentTarget)}));actual=d.importacion;pintar(actual,'Validando el archivo por bloques…');await lotes('validar')}catch(x){error(x.message)}finally{trabajando=false;bloquear(false)}});
+async function pedir(accion,id){return leer(await fetch(API,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({accion,importacion_id:String(id),csrf:CSRF})}))}
+async function leer(r){let d;try{d=await r.json()}catch(_){throw new Error('Respuesta inválida. Revisá los límites de carga de PHP.')}if(!r.ok||!d.ok)throw new Error(d.mensaje||'No se pudo completar la operación.');return d}
+async function lotes(accion){trabajando=true;try{let seguir=true;while(seguir){const d=await pedir(accion,actual.id);actual=d.importacion;seguir=Boolean(d.continuar);pintar(actual,accion==='validar'?'Validando el archivo por bloques…':'Aplicando registros por bloques…')}pintar(actual)}catch(x){error(x.message)}finally{trabajando=false}}
+async function cargarEstado(id){if(trabajando)return;try{actual=(await pedir('estado',id)).importacion;pintar(actual)}catch(x){error(x.message)}}
+async function aplicar(){if(!actual||trabajando||!confirm(`Se incorporarán ${actual.validas.toLocaleString('es-AR')} filas válidas. ¿Continuar?`))return;await lotes('aplicar')}
+async function activar(){if(!actual||trabajando||!confirm('Esta elección reemplazará a la activa para las consultas. ¿Continuar?'))return;trabajando=true;try{actual=(await pedir('activar',actual.id)).importacion;pintar(actual);aviso('La elección quedó activa.','success')}catch(x){error(x.message)}finally{trabajando=false}}
+function pintar(i,texto=''){document.getElementById('sinImportacion').classList.add('d-none');document.getElementById('detalle').classList.remove('d-none');titulo.textContent=i.eleccion;archivo.textContent=`${i.archivo} · ${i.fecha}${i.version_tipo?' · '+i.version_tipo+' #'+i.version_numero:''}`;estado.textContent=i.version_estado==='activa'?'versión activa':i.estado;['total','validas','rechazadas','importadas'].forEach(k=>document.getElementById(k).textContent=Number(i[k]).toLocaleString('es-AR'));[1,2,3].forEach(n=>document.getElementById(`nivel${n}`).textContent=Number(i.niveles?.[n]||0).toLocaleString('es-AR'));let p=0;if(['importando','completado'].includes(i.estado))p=i.validas?Math.min(100,i.importadas*100/i.validas):100;else if(i.estado==='validado')p=100;barra.style.width=`${p}%`;mensaje.textContent=texto||i.mensaje||`Personas nuevas: ${i.personas_insertadas.toLocaleString('es-AR')} · actualizadas: ${i.personas_actualizadas.toLocaleString('es-AR')}`;acciones.innerHTML='';if(['subido','validando'].includes(i.estado))acciones.appendChild(btn('Continuar validación',()=>lotes('validar'),'primary'));if(i.estado==='validado'&&i.validas>0)acciones.appendChild(btn('Aplicar filas válidas',aplicar,'success'));if(i.estado==='importando')acciones.appendChild(btn('Continuar aplicación',()=>lotes('aplicar'),'success'));if(i.estado==='completado'&&i.version_id>0&&i.version_estado!=='activa')acciones.appendChild(btn('Activar versión',activar,'warning'));pintarErrores(i.errores||[])}
+function btn(t,f,c){const b=document.createElement('button');b.className=`btn btn-${c}`;b.textContent=t;b.onclick=f;return b}function esc(v){const d=document.createElement('div');d.textContent=String(v);return d.innerHTML}function pintarErrores(es){errores.innerHTML=es.length?'<h3 class="h6">Primeras observaciones</h3><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fila</th><th>DNI</th><th>Detalle</th></tr></thead><tbody>'+es.map(e=>`<tr class="${e.errores?'table-danger':''}"><td>${esc(e.numero_fila)}</td><td>${esc(e.dni||'')}</td><td>${esc(e.errores||e.advertencias||'')}</td></tr>`).join('')+'</tbody></table></div>':''}function bloquear(v){btnSubir.disabled=v}function error(m){aviso(m,'danger')}function aviso(m,t){alerta.innerHTML=`<div class="alert alert-${t}">${esc(m)}</div>`;scrollTo({top:0,behavior:'smooth'})}
+</script></body></html>

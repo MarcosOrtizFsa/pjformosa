@@ -44,6 +44,10 @@ Scopes:
 La consulta usa exclusivamente las tablas normalizadas. Hasta que se migre o
 importe un padrón, responderá que la persona no fue encontrada.
 
+Sólo se consulta `padron_versiones.estado = 'activa'`. Una versión anual,
+provisoria o definitiva que todavía se está cargando no modifica las respuestas
+de la API.
+
 ## APIs heredadas
 
 Los archivos `sistema/php/json_*.php` permanecen temporalmente para no romper

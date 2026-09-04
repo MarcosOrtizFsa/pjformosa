@@ -1,6 +1,15 @@
 Options -Indexes
 RewriteEngine On
 
+# El padrón completo puede superar el límite habitual de 40 MB. Este bloque
+# sólo se aplica cuando Apache ejecuta PHP como módulo; .user.ini cubre PHP-FPM.
+<IfModule mod_php.c>
+  php_value upload_max_filesize 512M
+  php_value post_max_size 512M
+  php_value max_input_time 300
+  php_value max_execution_time 120
+</IfModule>
+
 # Nunca exponer archivos de configuración, volcados o documentación interna.
 <FilesMatch "(?i)^(mysql_conect\.php|.*\.(sql|bak|log|ini|env))$">
   Require all denied
@@ -16,4 +25,3 @@ RewriteRule ^login/([0-9]{9,10})/(.{38,46})/([0-9]{9,10})/?$ sistema/php/valida.
 RewriteRule ^sistema/perfil/?$ sistema/index.php?mod=perfil [L,QSA]
 RewriteRule ^login/?$ sistema/index.php?mod=login [L,QSA]
 RewriteRule ^code/([0-9]{8})/?$ code_pdf.php?code=$1 [L,QSA]
-
