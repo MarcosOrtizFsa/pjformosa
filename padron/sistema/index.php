@@ -81,29 +81,9 @@ if ( $sesion_system_03 !='' || $sesion_system_07 !='' || $sesion_system_06 !='' 
 			$cargar_inicial=" cargar_post('".$url."','content_seccion',''); ";
 		}
 		else
-		if ( $sesion_system_07 == '5' or $sesion_system_07 == '6'  )// es un dirigente. Ingresa por link
 		{
-			//$url="modulos/checked/php/home.php?id_system_01=8";
-			$url="modulos/afiliaciones/php/home.php?id_system_01=107";
-			$cargar_inicial=" cargar_post('".$url."','content_seccion',''); ";
-		}
-		else
-		if ( $sesion_system_07 == '7' )// es un veedor. Ingresa por link
-		{
-			$url="modulos/home/php/home.php?id_system_01=3";
-			$cargar_inicial=" cargar_post('".$url."','content_seccion',''); ";
-		}
-		else
-		if ( $sesion_system_07 == '2' )// es un veedor. Ingresa por link
-		{
-			//$url="modulos/home/php/home.php?id_system_01=3";
-			$url="modulos/verificar/php/home.php?id_system_01=111";
-			$cargar_inicial=" cargar_post('".$url."','content_seccion',''); ";
-		}
-		else
-		{
-			$url="modulos/afiliaciones/php/home.php?id_system_01=107";// voy a sondeo		
-			$cargar_inicial=" cargar_post('".$url."','content_seccion','reset=go'); ";	
+			$url="modulos/home/php/home.php?id_system_01=107";
+			$cargar_inicial=" cargar_post('".$url."','content_seccion','reset=go'); ";
 		}
 
 			
