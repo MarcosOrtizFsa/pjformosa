@@ -1,55 +1,96 @@
-# API privada v1
+# API privada del padron - v1
 
-## Principios
+La API esta pensada para comunicaciones backend a backend entre proyectos
+propios. El token nunca debe colocarse en JavaScript, aplicaciones publicas ni
+repositorios Git.
 
-- No utiliza `Access-Control-Allow-Origin: *`.
-- Cada proyecto consumidor recibe un token diferente.
-- En la base sólo se almacena el SHA-256 del token.
-- Los permisos se expresan mediante scopes.
-- Cada solicitud queda auditada con cliente, ruta, IP, estado y duración.
-- Los errores no exponen SQL, rutas ni credenciales.
+## Puesta en marcha
 
-## Crear un cliente
-
-Desde una consola del servidor:
+1. Ejecutar las migraciones hasta `012_servicios_api_v1.sql`.
+2. Crear un cliente desde la consola del servidor:
 
 ```bash
-php padron/tools/crear_cliente_api.php "Nombre del proyecto" "padron:consultar,sistema:salud"
+php padron/tools/crear_cliente_api.php "Proyecto consumidor" "sistema:salud,padron:consultar,padron:mesas" 120
 ```
 
-El token se muestra una sola vez. Debe guardarse en los secretos del proyecto
-consumidor, nunca en JavaScript público ni en Git.
+Los argumentos opcionales son el limite por minuto y una lista de IP separadas
+por comas. Cero desactiva el limite. El token se muestra una sola vez.
 
-## Autenticación
+Para revocar inmediatamente un cliente:
+
+```bash
+php padron/tools/revocar_cliente_api.php "CLIENT-ID"
+```
+
+3. Guardar `Client-ID` y `Token` como secretos del proyecto consumidor.
+
+## Autenticacion
 
 ```http
 Authorization: Bearer TOKEN
+X-Client-ID: UUID
 Accept: application/json
 ```
 
-También se acepta `X-API-Key`. Opcionalmente se puede enviar `X-Client-ID`.
+`X-Client-ID` es recomendable y `X-API-Key` puede reemplazar a `Authorization`.
+No se habilita CORS porque el consumo previsto es desde servidores.
 
-## Endpoints iniciales
+## Servicios
 
-```text
-GET /padron/api/v1/salud
-GET /padron/api/v1/personas/12345678
+| Metodo y ruta | Scope | Resultado |
+| --- | --- | --- |
+| `GET /padron/api/v1/salud` | `sistema:salud` | Estado del servicio |
+| `GET /padron/api/v1/version` | `padron:consultar` | Version electoral activa |
+| `GET /padron/api/v1/personas/{dni}` | `padron:consultar` | Persona, domicilio y lugar de votacion |
+| `GET /padron/api/v1/mesas/{numero}` | `padron:mesas` | Escuela y resumen de una mesa |
+| `GET /padron/api/v1/escuelas?nombre=texto` | `padron:mesas` | Escuelas coincidentes y sus mesas |
+| `GET /padron/api/v1/verificacion/{dni}` | `partido:consultar` | Estado electoral, afiliacion, tramite y ultimo aval |
+| `GET /padron/api/v1/avales/{dni}` | `partido:avales` | Historial de avales de una persona |
+
+Los servicios partidarios no devuelven archivos, rutas internas ni imagenes de
+documentos. Solo informan su cantidad y tipos en la verificacion.
+
+## Ejemplo PHP consumidor
+
+```php
+<?php
+$url = 'https://dominio.example/padron/api/v1/personas/12345678';
+$curl = curl_init($url);
+curl_setopt_array($curl, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => 10,
+    CURLOPT_HTTPHEADER => [
+        'Accept: application/json',
+        'Authorization: Bearer '.getenv('PADRON_API_TOKEN'),
+        'X-Client-ID: '.getenv('PADRON_API_CLIENT_ID'),
+    ],
+]);
+$cuerpo = curl_exec($curl);
+$estado = curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+curl_close($curl);
+$respuesta = json_decode((string) $cuerpo, true, 512, JSON_THROW_ON_ERROR);
 ```
 
-Scopes:
+## Formato de respuesta
 
-- `sistema:salud`
-- `padron:consultar`
+Exito:
 
-La consulta usa exclusivamente las tablas normalizadas. Hasta que se migre o
-importe un padrón, responderá que la persona no fue encontrada.
+```json
+{"ok":true,"version":"1.0","request_id":"uuid","data":{}}
+```
 
-Sólo se consulta `padron_versiones.estado = 'activa'`. Una versión anual,
-provisoria o definitiva que todavía se está cargando no modifica las respuestas
-de la API.
+Error:
 
-## APIs heredadas
+```json
+{"ok":false,"version":"1.0","request_id":"uuid","error":{"code":"CODIGO","message":"Detalle"}}
+```
 
-Los archivos `sistema/php/json_*.php` permanecen temporalmente para no romper
-módulos, pero no deben usarse en proyectos nuevos. Serán retirados después de
-migrar sus consumidores a `/api/v1`.
+Codigos HTTP habituales: `200`, `401`, `403`, `404`, `405`, `422`, `429` y
+`500`. Cada respuesta queda auditada. El encabezado `Retry-After: 60` acompana
+los rechazos por limite de solicitudes.
+
+## API heredada
+
+Los archivos `sistema/php/json_*.php` siguen protegidos por la sesion interna y
+no deben utilizarse en integraciones nuevas. Los nuevos consumidores deben usar
+exclusivamente `/padron/api/v1`.

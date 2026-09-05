@@ -7,4 +7,9 @@ SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
 
 # API v1: las rutas públicas son estables aunque cambien los archivos PHP.
 RewriteRule ^v1/salud/?$ v1/salud.php [L,QSA]
-RewriteRule ^v1/personas/([0-9]{7,8})/?$ v1/personas.php?dni=$1 [L,QSA]
+RewriteRule ^v1/version/?$ v1/version.php [L,QSA]
+RewriteRule ^v1/personas/([0-9]{6,8})/?$ v1/personas.php?dni=$1 [L,QSA]
+RewriteRule ^v1/verificacion/([0-9]{6,8})/?$ v1/verificacion.php?dni=$1 [L,QSA]
+RewriteRule ^v1/avales/([0-9]{6,8})/?$ v1/avales.php?dni=$1 [L,QSA]
+RewriteRule ^v1/mesas/([0-9]+)/?$ v1/mesas.php?mesa=$1 [L,QSA]
+RewriteRule ^v1/escuelas/?$ v1/escuelas.php [L,QSA]

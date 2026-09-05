@@ -73,7 +73,7 @@ function api_autenticar(string $scopeRequerido): array
     }
 
     $consulta = api_bd()->prepare(
-        'SELECT id, nombre, client_id, scopes, ips_permitidas
+        'SELECT id, nombre, client_id, scopes, ips_permitidas, limite_por_minuto
          FROM padron_api_clientes
          WHERE token_hash = :token_hash
            AND estado = 1
@@ -98,8 +98,36 @@ function api_autenticar(string $scopeRequerido): array
     }
 
     $apiCliente = $cliente;
+    api_limitar_solicitudes($cliente);
     api_bd()->prepare('UPDATE padron_api_clientes SET ultimo_uso_en = NOW() WHERE id = ?')->execute([$cliente['id']]);
     return $cliente;
+}
+
+function api_limitar_solicitudes(array $cliente): void
+{
+    // El limite se calcula con la auditoria central y es independiente para
+    // cada proyecto consumidor. Cero permite desactivarlo para un cliente.
+    $limite = (int) ($cliente['limite_por_minuto'] ?? 120);
+    if ($limite <= 0) {
+        return;
+    }
+    $consulta = api_bd()->prepare(
+        'SELECT COUNT(*) FROM padron_api_registros
+         WHERE cliente_id = ? AND creado_en >= (NOW() - INTERVAL 1 MINUTE)'
+    );
+    $consulta->execute([(int) $cliente['id']]);
+    if ((int) $consulta->fetchColumn() >= $limite) {
+        header('Retry-After: 60');
+        api_responder(429, null, 'Se alcanzo el limite temporal de solicitudes.', 'RATE_LIMITED');
+    }
+}
+
+function api_solo_get(): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+        header('Allow: GET');
+        api_responder(405, null, 'Metodo no permitido.', 'METHOD_NOT_ALLOWED');
+    }
 }
 
 function api_auditar(int $estadoHttp): void
@@ -147,7 +175,7 @@ function api_responder(int $estadoHttp, mixed $datos = null, ?string $mensaje = 
     }
 
     api_auditar($estadoHttp);
-    echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
 }
 
