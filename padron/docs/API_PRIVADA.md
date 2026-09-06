@@ -4,10 +4,16 @@ La API esta pensada para comunicaciones backend a backend entre proyectos
 propios. El token nunca debe colocarse en JavaScript, aplicaciones publicas ni
 repositorios Git.
 
+Para implementar un proyecto consumidor desde cero, consultar también
+[`MANUAL_CLIENTE_API.md`](MANUAL_CLIENTE_API.md).
+
 ## Puesta en marcha
 
-1. Ejecutar las migraciones hasta `012_servicios_api_v1.sql`.
-2. Crear un cliente desde la consola del servidor:
+1. Ejecutar las migraciones hasta `013_modulo_clientes_api.sql`.
+2. Ingresar como administrador general al módulo **Clientes API**. Allí se
+   crean, suspenden, revocan y rotan credenciales y se consulta su auditoría.
+   El token nuevo se muestra una sola vez.
+3. Como alternativa de emergencia, crear el cliente desde la consola:
 
 ```bash
 php padron/tools/crear_cliente_api.php "Proyecto consumidor" "sistema:salud,padron:consultar,padron:mesas" 120
@@ -22,7 +28,7 @@ Para revocar inmediatamente un cliente:
 php padron/tools/revocar_cliente_api.php "CLIENT-ID"
 ```
 
-3. Guardar `Client-ID` y `Token` como secretos del proyecto consumidor.
+4. Guardar `Client-ID` y `Token` como secretos del proyecto consumidor.
 
 ## Autenticacion
 

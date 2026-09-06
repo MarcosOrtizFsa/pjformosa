@@ -52,7 +52,8 @@ domicilio y no se copia en cada asignación electoral.
 - `padron_avales`: personas incluidas y posición dentro de cada folio.
 - `padron_migracion_incidencias`: inconsistencias heredadas pendientes de revisión.
 - `padron_documentos`: metadatos de archivos privados.
-- `padron_api_clientes` y `padron_api_registros`: acceso y auditoría de API.
+- `padron_api_clientes`, `padron_api_registros` y `padron_api_eventos`: acceso,
+  consumo y acciones administrativas de la API.
 
 ## Carga de hasta 800.000 personas
 
